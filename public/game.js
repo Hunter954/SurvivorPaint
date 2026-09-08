@@ -3,8 +3,8 @@
 
   // ============================================================
   // RABISCO SURVIVORS CO-OP
-  // Cliente Canvas 2D + multiplayer via HTTP polling.
-  // Sem bibliotecas externas: pronto para Railway/GitHub.
+  // Cliente Canvas 2D + multiplayer em tempo real via WebSocket.
+  // Fallback HTTP automático se a conexão realtime cair.
   // ============================================================
 
   const canvas = document.getElementById('game');
@@ -131,7 +131,8 @@
   function loadBuildSession(runId){try{const r=JSON.parse(sessionStorage.getItem('rabiscoBuild')||'null');if(!r||r.runId!==runId)return false;resetBuild();for(const k of Object.keys(build.weapons))if(r.weapons&&r.weapons[k])build.weapons[k]={...build.weapons[k],...r.weapons[k],cd:0};for(const k of Object.keys(build.passives))if(Number.isFinite(r.passives&&r.passives[k]))build.passives[k]=r.passives[k];build.runDamage=Number(r.runDamage||0);build.runCooldown=Number(r.runCooldown||0);build.runArea=Number(r.runArea||0);recalcBuild(false);return true}catch{return false}}
 
   // --------------------------- NETWORK ---------------------------
-  const net={roomId:'',playerId:'',token:'',state:null,connected:false,polling:false,runId:'',lastEventSeq:0,lastStateAt:0,errorCount:0};
+  const net={roomId:'',playerId:'',token:'',state:null,connected:false,polling:false,runId:'',lastEventSeq:0,lastStateAt:0,errorCount:0,
+    ws:null,wsConnected:false,realtimeWanted:false,wsRetry:0,wsReconnectTimer:null,lastWsMessageAt:0};
   const SESSION_KEY='rabiscoCoopSessionV2';
   function authPayload(extra={}){return{roomId:net.roomId,playerId:net.playerId,token:net.token,...extra}}
   async function api(path,body=null,method='POST'){
@@ -146,12 +147,12 @@
   async function createRoom(startSolo=false){
     resumeAudio();const name=sanitizeLocalName();
     setBusy(true);
-    try{const j=await api('/api/room/create',{name});applySession(j);await syncStats();startPolling();history.replaceState({},'',`${location.pathname}?room=${j.roomId}`);if(startSolo){await api('/api/room/start',authPayload());toast('Run solo iniciada!')}else toast('Sala criada. Copie o link!')}
+    try{const j=await api('/api/room/create',{name});applySession(j);await syncStats();startRealtime();history.replaceState({},'',`${location.pathname}?room=${j.roomId}`);if(startSolo){await api('/api/room/start',authPayload());toast('Run solo iniciada!')}else toast('Sala criada. Copie o link!')}
     catch(e){toast(humanError(e.message))}finally{setBusy(false)}
   }
   async function joinRoom(code){
     resumeAudio();const name=sanitizeLocalName();setBusy(true);
-    try{const j=await api('/api/room/join',{roomId:code,name});applySession(j);await syncStats();startPolling();history.replaceState({},'',`${location.pathname}?room=${j.roomId}`);toast('Entrou na sala!')}
+    try{const j=await api('/api/room/join',{roomId:code,name});applySession(j);await syncStats();startRealtime();history.replaceState({},'',`${location.pathname}?room=${j.roomId}`);toast('Entrou na sala!')}
     catch(e){toast(humanError(e.message))}finally{setBusy(false)}
   }
   function applySession(j){net.roomId=j.roomId;net.playerId=j.playerId;net.token=j.token;net.connected=true;storeSession();ui.menu.classList.remove('visible');showLobbySkeleton()}
@@ -159,13 +160,83 @@
   function sanitizeLocalName(){const name=(ui.name.value||'Jogador').trim().slice(0,18)||'Jogador';localStorage.setItem('rabiscoNickname',name);return name}
   async function syncStats(){if(!net.roomId||!net.playerId)return;try{await api('/api/stats',authPayload(calcServerStats()));saveBuildSession()}catch{}}
 
-  function startPolling(){if(net.polling)return;net.polling=true;(async function loop(){while(net.polling&&net.roomId){try{const q=new URLSearchParams(authPayload());const r=await fetch(`/api/state?${q}`,{cache:'no-store'});const j=await r.json();if(!r.ok||!j.ok)throw new Error(j.error||'STATE_ERROR');net.connected=true;net.errorCount=0;handleState(j.room)}catch(e){net.errorCount++;if(net.errorCount===2)toast('Reconectando à sala...');if(net.errorCount>15){toast(humanError(e.message));net.polling=false;clearSession();showMenu();break}}await new Promise(r=>setTimeout(r,90))}})()}
+  function wsAddress(){
+    const proto=location.protocol==='https:'?'wss:':'ws:';
+    const q=new URLSearchParams(authPayload());
+    return `${proto}//${location.host}/ws?${q}`;
+  }
+  function sendRealtime(type,payload={}){
+    const ws=net.ws;
+    if(!ws||ws.readyState!==WebSocket.OPEN)return false;
+    // Input pode ser descartado se o navegador estiver com backlog; o próximo pacote substitui.
+    if(type==='input'&&ws.bufferedAmount>256*1024)return true;
+    try{ws.send(JSON.stringify({type,...payload}));return true}catch{return false}
+  }
+  function scheduleRealtimeReconnect(){
+    if(!net.realtimeWanted||!net.roomId||net.wsReconnectTimer)return;
+    const wait=Math.min(4200,550*Math.pow(1.55,net.wsRetry++));
+    net.wsReconnectTimer=setTimeout(()=>{net.wsReconnectTimer=null;startRealtime()},wait);
+  }
+  function startRealtime(){
+    if(!net.roomId||!net.playerId||!net.token)return;
+    net.realtimeWanted=true;
+    if(net.ws&&(net.ws.readyState===WebSocket.OPEN||net.ws.readyState===WebSocket.CONNECTING))return;
+    let ws;
+    try{ws=new WebSocket(wsAddress())}catch{startPolling();scheduleRealtimeReconnect();return}
+    net.ws=ws;
+    ws.onopen=()=>{
+      if(net.ws!==ws)return;
+      net.wsConnected=true;net.connected=true;net.errorCount=0;net.wsRetry=0;net.lastWsMessageAt=performance.now();
+      stopPolling();
+      const m=currentMove();sendRealtime('input',{dx:m.x,dy:m.y,aim:currentAim()});
+    };
+    ws.onmessage=ev=>{
+      if(net.ws!==ws)return;
+      let msg;try{msg=JSON.parse(ev.data)}catch{return}
+      net.lastWsMessageAt=performance.now();
+      if(msg.type==='state'&&msg.room){net.connected=true;net.errorCount=0;handleState(msg.room)}
+    };
+    ws.onerror=()=>{};
+    ws.onclose=()=>{
+      if(net.ws!==ws)return;
+      net.ws=null;net.wsConnected=false;
+      if(net.realtimeWanted&&net.roomId){startPolling();scheduleRealtimeReconnect()}
+    };
+  }
+  function stopRealtime(){
+    net.realtimeWanted=false;net.wsConnected=false;
+    if(net.wsReconnectTimer){clearTimeout(net.wsReconnectTimer);net.wsReconnectTimer=null}
+    stopPolling();
+    const ws=net.ws;net.ws=null;
+    if(ws&&ws.readyState<2){try{ws.close(1000,'leave')}catch{}}
+  }
+  function startPolling(){
+    if(net.polling||net.wsConnected||!net.roomId)return;
+    net.polling=true;
+    (async function loop(){
+      while(net.polling&&net.roomId&&!net.wsConnected){
+        try{
+          const q=new URLSearchParams(authPayload({eventSeq:net.lastEventSeq}));
+          const r=await fetch(`/api/state?${q}`,{cache:'no-store'});const j=await r.json();
+          if(!r.ok||!j.ok)throw new Error(j.error||'STATE_ERROR');
+          net.connected=true;net.errorCount=0;handleState(j.room);
+        }catch(e){
+          net.errorCount++;
+          if(net.errorCount===2)toast('Reconectando à sala...');
+          if(net.errorCount>15){toast(humanError(e.message));stopRealtime();clearSession();showMenu();break}
+        }
+        await new Promise(r=>setTimeout(r,120));
+      }
+      net.polling=false;
+    })();
+  }
   function stopPolling(){net.polling=false}
+
 
   async function tryReconnect(){
     const queryRoom=(new URLSearchParams(location.search).get('room')||'').toUpperCase();
     if(queryRoom){ui.joinBox.classList.remove('hidden');ui.joinCode.textContent=queryRoom}
-    try{const s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');if(!s||!s.roomId||!s.playerId||!s.token)return;if(queryRoom&&s.roomId!==queryRoom)return;net.roomId=s.roomId;net.playerId=s.playerId;net.token=s.token;net.connected=true;startPolling();ui.menu.classList.remove('visible');showLobbySkeleton()}catch{}
+    try{const s=JSON.parse(sessionStorage.getItem(SESSION_KEY)||'null');if(!s||!s.roomId||!s.playerId||!s.token)return;if(queryRoom&&s.roomId!==queryRoom)return;net.roomId=s.roomId;net.playerId=s.playerId;net.token=s.token;net.connected=true;startRealtime();ui.menu.classList.remove('visible');showLobbySkeleton()}catch{}
   }
 
   function showMenu(){hideAllOverlays();ui.menu.classList.add('visible');renderMetaShop();const q=(new URLSearchParams(location.search).get('room')||'').toUpperCase();if(q){ui.joinBox.classList.remove('hidden');ui.joinCode.textContent=q}else ui.joinBox.classList.add('hidden')}
@@ -230,18 +301,77 @@
   // --------------------------- RENDER INTERPOLATION ---------------------------
   const renderEnemies=new Map(),renderPlayers=new Map();
   const camera={x:0,y:0};
-  function updateRenderTargets(room){
-    const seenE=new Set();for(const e of room.enemies){seenE.add(e.id);let r=renderEnemies.get(e.id);if(!r){r={...e,tx:e.x,ty:e.y};renderEnemies.set(e.id,r)}else Object.assign(r,e,{tx:e.x,ty:e.y})}for(const id of renderEnemies.keys())if(!seenE.has(id))renderEnemies.delete(id);
-    const seenP=new Set();for(const p of room.players){seenP.add(p.id);let r=renderPlayers.get(p.id);if(!r){r={...p,tx:p.x,ty:p.y};renderPlayers.set(p.id,r)}else Object.assign(r,p,{tx:p.x,ty:p.y})}for(const id of renderPlayers.keys())if(!seenP.has(id))renderPlayers.delete(id);
+  const localMotion={dashUntil:0,dashX:0,dashY:0};
+  function updateNetTarget(map,item,recv){
+    let r=map.get(item.id);
+    if(!r){r={...item,tx:item.x,ty:item.y,netVx:0,netVy:0,lastNetAt:recv};map.set(item.id,r);return}
+    const oldX=r.x,oldY=r.y,oldTx=r.tx,oldTy=r.ty;
+    const ndt=Math.max(.016,Math.min(.25,(recv-(r.lastNetAt||recv))/1000));
+    const vx=(item.x-oldTx)/ndt,vy=(item.y-oldTy)/ndt;
+    r.netVx=lerp(r.netVx||vx,vx,.48);r.netVy=lerp(r.netVy||vy,vy,.48);
+    Object.assign(r,item);
+    // O bug antigo sobrescrevia x/y aqui e fazia a entidade TELEPORTAR a cada snapshot.
+    // Mantemos a posição desenhada separada da posição autoritativa recebida.
+    r.x=oldX;r.y=oldY;r.tx=item.x;r.ty=item.y;r.lastNetAt=recv;
   }
-  function interpolate(dt){for(const e of renderEnemies.values()){e.x=lerp(e.x,e.tx,clamp(dt*13,0,1));e.y=lerp(e.y,e.ty,clamp(dt*13,0,1))}for(const p of renderPlayers.values()){p.x=lerp(p.x,p.tx,clamp(dt*18,0,1));p.y=lerp(p.y,p.ty,clamp(dt*18,0,1))}const me=renderPlayers.get(net.playerId);if(me){camera.x=lerp(camera.x,me.x,clamp(dt*12,0,1));camera.y=lerp(camera.y,me.y,clamp(dt*12,0,1))}}
+  function updateRenderTargets(room){
+    const recv=performance.now(),seenE=new Set();
+    for(const e of room.enemies){seenE.add(e.id);updateNetTarget(renderEnemies,e,recv)}
+    for(const id of [...renderEnemies.keys()])if(!seenE.has(id))renderEnemies.delete(id);
+    const seenP=new Set();
+    for(const p of room.players){seenP.add(p.id);updateNetTarget(renderPlayers,p,recv)}
+    for(const id of [...renderPlayers.keys()])if(!seenP.has(id))renderPlayers.delete(id);
+  }
+  function interpolate(dt){
+    const age=clamp((performance.now()-net.lastStateAt)/1000,0,.12);
+    const ef=1-Math.exp(-dt*15);
+    for(const e of renderEnemies.values()){
+      const ex=e.tx+(e.netVx||0)*age,ey=e.ty+(e.netVy||0)*age;
+      e.x=lerp(e.x,ex,ef);e.y=lerp(e.y,ey,ef);
+    }
+    const pf=1-Math.exp(-dt*18);
+    for(const p of renderPlayers.values()){
+      if(p.id===net.playerId)continue;
+      const ex=p.tx+(p.netVx||0)*age,ey=p.ty+(p.netVy||0)*age;
+      p.x=lerp(p.x,ex,pf);p.y=lerp(p.y,ey,pf);
+    }
+    const me=renderPlayers.get(net.playerId);
+    if(me){
+      const running=net.state&&net.state.mode==='running'&&!net.state.rewardPaused&&!net.state.manualPaused&&me.alive;
+      if(running){
+        let mx,my,speed=(Number(me.speed)||235)*(me.buffHaste>0?1.22:1);
+        if(performance.now()<localMotion.dashUntil){mx=localMotion.dashX;my=localMotion.dashY;speed*=3.25}
+        else{const m=currentMove();mx=m.x;my=m.y}
+        // Predição local: seu boneco responde no MESMO frame, sem esperar o Railway voltar.
+        me.x+=mx*speed*dt;me.y+=my*speed*dt;
+      }
+      const err=dist(me.x,me.y,me.tx,me.ty);
+      const correction=err>260?.92:err>120?(1-Math.exp(-dt*12)):(1-Math.exp(-dt*3.3));
+      me.x=lerp(me.x,me.tx,correction);me.y=lerp(me.y,me.ty,correction);
+      camera.x=lerp(camera.x,me.x,1-Math.exp(-dt*16));camera.y=lerp(camera.y,me.y,1-Math.exp(-dt*16));
+    }
+  }
   function worldToScreen(x,y){return{x:CX+(x-camera.x),y:CY+(y-camera.y)}}
   function screenToWorld(x,y){return{x:camera.x+(x-CX),y:camera.y+(y-CY)}}
   function onScreen(x,y,pad=150){const s=worldToScreen(x,y);return s.x>-pad&&s.x<W+pad&&s.y>-pad&&s.y<H+pad}
   function getMe(){return net.state&&net.state.players.find(p=>p.id===net.playerId)}
   function getMeRender(){return renderPlayers.get(net.playerId)||getMe()}
-  function nearbyEnemies(x,y,range=99999){return[...renderEnemies.values()].filter(e=>e.hp>0&&dist(x,y,e.x,e.y)<=range+e.radius).sort((a,b)=>dist(x,y,a.x,a.y)-dist(x,y,b.x,b.y))}
-  function nearestEnemy(x,y,range=99999){return nearbyEnemies(x,y,range)[0]||null}
+  function nearbyEnemies(x,y,range=99999){
+    const out=[];
+    for(const e of renderEnemies.values()){
+      if(e.hp<=0)continue;const dx=e.x-x,dy=e.y-y,d2=dx*dx+dy*dy,lim=range+e.radius;
+      if(d2<=lim*lim)out.push([d2,e]);
+    }
+    out.sort((a,b)=>a[0]-b[0]);return out.map(v=>v[1]);
+  }
+  function nearestEnemy(x,y,range=99999){
+    let best=null,bd=Infinity;
+    for(const e of renderEnemies.values()){
+      if(e.hp<=0)continue;const dx=e.x-x,dy=e.y-y,d2=dx*dx+dy*dy,lim=range+e.radius;
+      if(d2<=lim*lim&&d2<bd){best=e;bd=d2}
+    }
+    return best;
+  }
 
   // --------------------------- LOCAL COMBAT ---------------------------
   const bullets=[],lobs=[],inkZones=[],axes=[],mines=[],trailZones=[],scissors=[],boomerangs=[],particles=[],floating=[],fxLines=[],remoteZones=[],impactFx=[];
@@ -250,7 +380,7 @@
   function crit(base){const c=Math.random()<build.critChance;return{damage:base*build.damageMult*(c?build.critDamage:1),crit:c}}
   function queueDamage(enemy,amount,kind=''){if(!enemy||amount<=0)return;damageQueue.set(enemy.id,(damageQueue.get(enemy.id)||0)+amount);floating.push({x:enemy.x+rand(-8,8),y:enemy.y-enemy.radius-10,text:`${Math.round(amount)}`,life:.55,color:weaponDefs[kind]&&weaponDefs[kind].color||'#111'})}
   function queueFx(fx){if(fxQueue.length<16)fxQueue.push(fx)}
-  async function flushCombat(dt){combatFlushTimer-=dt;if(combatFlushTimer>0||(!damageQueue.size&&!fxQueue.length))return;combatFlushTimer=.06;const hits=[...damageQueue.entries()].slice(0,80).map(([id,damage])=>({id,damage}));damageQueue.clear();const fx=fxQueue.splice(0,8);api('/api/combat',authPayload({hits,fx})).catch(()=>{})}
+  async function flushCombat(dt){combatFlushTimer-=dt;if(combatFlushTimer>0||(!damageQueue.size&&!fxQueue.length))return;combatFlushTimer=.05;const hits=[...damageQueue.entries()].slice(0,80).map(([id,damage])=>({id,damage}));damageQueue.clear();const fx=fxQueue.splice(0,8),payload={hits,fx};if(!sendRealtime('combat',payload))api('/api/combat',authPayload(payload)).catch(()=>{})}
   function effectiveCd(base,me){let m=build.cooldownMult;if(me&&me.buffHaste>0)m*=.72;return Math.max(.08,base*m)}
 
   function fireRifle(w,me){const lv=w.level,amount=1+build.amountBonus+(me.buffDouble>0?1:0)+(w.evolved?1:0),base=17+lv*5.1+(w.evolved?15:0),speed=(600+lv*24)*(w.evolved?1.12:1)*build.projectileSpeed,pierce=1+Math.floor(lv/3)+(w.evolved?4:0);for(let i=0;i<amount;i++){const a=currentAim()+((i-(amount-1)/2)*.045);const cr=crit(base);bullets.push({x:me.x+Math.cos(a)*28,y:me.y+Math.sin(a)*28,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,r:4+(w.evolved?1:0),damage:cr.damage,pierce,life:1.8,hit:new Set(),color:weaponDefs.rifle.color,kind:'rifle'});queueFx({type:'shot',x:me.x,y:me.y,a,weapon:'rifle'})}w.cd=effectiveCd(w.evolved?.19:Math.max(.24,.52-lv*.032),me);sfxShot()}
@@ -310,8 +440,16 @@
   function canvasPoint(clientX,clientY){const r=canvas.getBoundingClientRect();return{x:clamp((clientX-r.left)*(W/r.width),0,W),y:clamp((clientY-r.top)*(H/r.height),0,H)}}
   function currentMove(){let x=0,y=0;if(keys.has('KeyA')||keys.has('ArrowLeft'))x--;if(keys.has('KeyD')||keys.has('ArrowRight'))x++;if(keys.has('KeyW')||keys.has('ArrowUp'))y--;if(keys.has('KeyS')||keys.has('ArrowDown'))y++;x+=touchMove.x;y+=touchMove.y;const m=Math.hypot(x,y);if(m>1){x/=m;y/=m}return{x,y}}
   function currentAim(){const me=getMeRender();if(!me)return 0;if(pointer.active)return Math.atan2(pointer.y-CY,pointer.x-CX);const e=nearestEnemy(me.x,me.y,800);return e?Math.atan2(e.y-me.y,e.x-me.x):(me.aim||0)}
-  async function dash(){const me=getMe();if(!me||!me.alive)return;const m=currentMove();try{await api('/api/dash',authPayload({dx:m.x,dy:m.y}))}catch{}}
-  let inputSending=false;setInterval(async()=>{if(inputSending||!net.connected||!net.state||net.state.mode!=='running')return;inputSending=true;const m=currentMove();try{await api('/api/input',authPayload({dx:m.x,dy:m.y,aim:currentAim()}))}catch{}finally{inputSending=false}},55);
+  async function dash(){const me=getMeRender();if(!me||!me.alive||me.dashCooldown>0)return;let m=currentMove(),dx=m.x,dy=m.y,mm=Math.hypot(dx,dy);if(mm<.1){const a=currentAim();dx=Math.cos(a);dy=Math.sin(a);mm=1}else{dx/=mm;dy/=mm}localMotion.dashX=dx;localMotion.dashY=dy;localMotion.dashUntil=performance.now()+180;if(sendRealtime('dash',{dx,dy}))return;try{await api('/api/dash',authPayload({dx,dy}))}catch{}}
+  let inputSending=false,lastHttpInput=0,lastInputAt=0,lastInputX=99,lastInputY=99,lastAim=999;
+  setInterval(async()=>{
+    if(!net.connected||!net.state||net.state.mode!=='running')return;
+    const now=performance.now(),m=currentMove(),aim=currentAim(),changed=Math.abs(m.x-lastInputX)>.01||Math.abs(m.y-lastInputY)>.01||Math.abs(aim-lastAim)>.012;
+    if(net.wsConnected){if(changed||now-lastInputAt>220){sendRealtime('input',{dx:m.x,dy:m.y,aim});lastInputX=m.x;lastInputY=m.y;lastAim=aim;lastInputAt=now}return}
+    if(inputSending||now-lastHttpInput<65)return;inputSending=true;lastHttpInput=now;
+    try{await api('/api/input',authPayload({dx:m.x,dy:m.y,aim}))}catch{}finally{inputSending=false}
+  },33);
+  setInterval(()=>{if(net.wsConnected)sendRealtime('heartbeat')},3000);
 
   window.addEventListener('keydown',e=>{keys.add(e.code);if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();if(e.code==='Space'&&!e.repeat)dash();if(e.code==='KeyP'&&!e.repeat&&net.state&&net.state.hostId===net.playerId)api('/api/room/pause',authPayload()).catch(err=>toast(humanError(err.message)));if(rewardKind==='level'&&['Digit1','Digit2','Digit3'].includes(e.code))chooseLevel(Number(e.code.slice(-1))-1)});
   window.addEventListener('keyup',e=>keys.delete(e.code));
@@ -365,8 +503,8 @@
   ui.soloBtn.onclick=()=>createRoom(true);ui.createRoomBtn.onclick=()=>createRoom(false);ui.joinBtn.onclick=()=>joinRoom(ui.joinCode.textContent.trim());ui.startRoom.onclick=()=>api('/api/room/start',authPayload()).catch(e=>toast(humanError(e.message)));ui.restartBtn.onclick=()=>api('/api/room/restart',authPayload()).catch(e=>toast(humanError(e.message)));ui.chestContinue.onclick=closeChest;
   ui.copyInvite.onclick=async()=>{try{await navigator.clipboard.writeText(ui.inviteLink.value);toast('Link copiado!')}catch{ui.inviteLink.select();document.execCommand('copy');toast('Link copiado!')}};
   ui.shareInvite.onclick=async()=>{if(navigator.share){try{await navigator.share({title:'Rabisco Survivors CO-OP',text:'Entra na minha sala para ajudar na run!',url:ui.inviteLink.value})}catch{}}else ui.copyInvite.click()};
-  ui.leaveRoom.onclick=()=>{stopPolling();clearSession();history.replaceState({},'',location.pathname);showMenu()};
-  ui.menuBtn.onclick=()=>{stopPolling();clearSession();history.replaceState({},'',location.pathname);showMenu()};
+  ui.leaveRoom.onclick=()=>{stopRealtime();clearSession();history.replaceState({},'',location.pathname);showMenu()};
+  ui.menuBtn.onclick=()=>{stopRealtime();clearSession();history.replaceState({},'',location.pathname);showMenu()};
   ui.resetSave.onclick=()=>{if(confirm('Zerar moedas, recordes e melhorias permanentes deste navegador?')){save=defaultSave();persistSave();renderMetaShop();toast('Progresso local zerado.')}};
 
   // --------------------------- FRAME ---------------------------

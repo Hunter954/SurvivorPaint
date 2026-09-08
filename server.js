@@ -10,9 +10,15 @@ const PORT = Number(process.env.PORT || 3000);
 const PUBLIC_DIR = path.join(__dirname, 'public');
 const ROOM_MAX_PLAYERS = 4;
 const RUN_DURATION = 8 * 60;
-const TICK_MS = 50;
+// Simulação do servidor em ~30 Hz. O estado é empurrado aos clientes a 20 Hz
+// por um WebSocket nativo (sem dependências externas).
+const TICK_MS = 33;
+const STATE_PUSH_MS = 50;
+const WS_GUID = '258EAFA5-E914-47DA-95CA-C5AB0DC85B11';
+const WS_MAX_MESSAGE = 1024 * 1024;
 
 const rooms = new Map();
+const realtimeClients = new Set();
 let globalEnemyId = 1;
 let globalBulletId = 1;
 let globalPickupId = 1;
@@ -522,14 +528,37 @@ function tickRoom(room, dt) {
   room.updatedAt = Date.now();
 }
 
-function snapshot(room, viewerId) {
+function snapshot(room, viewerId, afterEventSeq = 0) {
   const now = Date.now();
   const rewardWait = rewardPaused(room);
+  const viewer = room.players.get(viewerId) || null;
+  const viewRadius = 1900;
+  const bulletRadius = 1750;
+  const pickupRadius = 1900;
+
+  // Cada tela recebe só o que pode realmente aparecer/interagir perto daquele
+  // jogador. Isso evita mandar centenas de aves distantes em todo snapshot.
+  const enemies = [...room.enemies.values()].filter(e => {
+    if (!viewer) return true;
+    if (e.isBoss) return true;
+    return dist(viewer.x, viewer.y, e.x, e.y) <= viewRadius + e.radius;
+  });
+  const enemyBullets = [...room.enemyBullets.values()].filter(b =>
+    !viewer || dist(viewer.x, viewer.y, b.x, b.y) <= bulletRadius
+  );
+  const pickups = [...room.pickups.values()].filter(p =>
+    !viewer || dist(viewer.x, viewer.y, p.x, p.y) <= pickupRadius
+  );
+  const events = afterEventSeq > 0
+    ? room.events.filter(e => e.seq > afterEventSeq).slice(-50)
+    : room.events.slice(-30);
+
   return {
     id: room.id,
     hostId: room.hostId,
     mode: room.mode,
     runId: room.runId,
+    serverTime: now,
     elapsed: room.elapsed,
     duration: room.duration,
     teamKills: room.teamKills,
@@ -539,22 +568,24 @@ function snapshot(room, viewerId) {
     endedReason: room.endedReason,
     players: [...room.players.values()].map(p => ({
       id: p.id, name: p.name, color: p.color, x: p.x, y: p.y, aim: p.aim,
-      hp: p.hp, maxHp: p.maxHp, armor: p.armor, alive: p.alive, reviveProgress: p.reviveProgress,
+      hp: p.hp, maxHp: p.maxHp, armor: p.armor, speed: p.speed, alive: p.alive, reviveProgress: p.reviveProgress,
       level: p.level, xp: p.xp, xpNeed: p.xpNeed, pendingLevelups: p.pendingLevelups,
       pendingChests: p.pendingChests, kills: p.kills, damage: p.damage, runCoins: p.runCoins,
       connected: now - p.lastSeen < 9000,
       buffDouble: Math.max(0, p.buffDoubleUntil - room.elapsed),
       buffHaste: Math.max(0, p.buffHasteUntil - room.elapsed),
       shield: Math.max(0, p.shieldUntil - room.elapsed),
-      dashCooldown: p.dashCooldown, buildLabel: p.buildLabel
+      dashCooldown: p.dashCooldown, dashActive: p.dashActive,
+      dashDirX: p.dashDirX, dashDirY: p.dashDirY,
+      buildLabel: p.buildLabel
     })),
-    enemies: [...room.enemies.values()].map(e => ({
+    enemies: enemies.map(e => ({
       id: e.id, type: e.type, name: e.name, x: e.x, y: e.y, hp: e.hp, maxHp: e.maxHp,
       radius: e.radius, size: e.size, elite: e.elite, isBoss: e.isBoss, color: e.color || '#111', seed: e.seed
     })),
-    enemyBullets: [...room.enemyBullets.values()].map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r, color: b.color })),
-    pickups: [...room.pickups.values()],
-    events: room.events.slice(-50),
+    enemyBullets: enemyBullets.map(b => ({ id: b.id, x: b.x, y: b.y, r: b.r, color: b.color })),
+    pickups,
+    events,
     viewerId
   };
 }
@@ -623,6 +654,212 @@ function sanitizeFx(fx, player) {
   return out;
 }
 
+
+function applyPlayerInput(room, player, body) {
+  if (room.mode !== 'running') return;
+  let dx = clamp(Number(body.dx || 0), -1, 1);
+  let dy = clamp(Number(body.dy || 0), -1, 1);
+  const m = Math.hypot(dx, dy);
+  if (m > 1) { dx /= m; dy /= m; }
+  player.inputX = dx;
+  player.inputY = dy;
+  player.aim = Number.isFinite(Number(body.aim)) ? Number(body.aim) : player.aim;
+}
+
+function triggerPlayerDash(room, player, body) {
+  if (room.mode !== 'running' || rewardPaused(room) || room.manualPaused || !player.alive) return { ok: false };
+  if (player.dashCooldown > 0 || player.dashActive > 0) return { ok: false, cooldown: player.dashCooldown };
+  let dx = Number(body.dx || 0), dy = Number(body.dy || 0);
+  let m = Math.hypot(dx, dy);
+  if (m < .1) { dx = Math.cos(player.aim); dy = Math.sin(player.aim); m = 1; }
+  player.dashDirX = dx / m;
+  player.dashDirY = dy / m;
+  player.dashActive = .18;
+  player.dashCooldown = player.dashCooldownMax;
+  player.invuln = .26;
+  addEvent(room, { type: 'dash', playerId: player.id, x: player.x, y: player.y, dx: player.dashDirX, dy: player.dashDirY });
+  return { ok: true };
+}
+
+function applyCombatPacket(room, player, body) {
+  if (room.mode !== 'running' || rewardPaused(room) || room.manualPaused || !player.alive || !canCombat(player)) return;
+  const hits = Array.isArray(body.hits) ? body.hits.slice(0, 80) : [];
+  const seen = new Set();
+  for (const h of hits) {
+    const enemyId = Number(h.id);
+    if (!Number.isFinite(enemyId) || seen.has(enemyId)) continue;
+    seen.add(enemyId);
+    const e = room.enemies.get(enemyId);
+    if (!e) continue;
+    const damage = clamp(Number(h.damage || 0), 0, 100000);
+    if (damage <= 0) continue;
+    e.hp -= damage;
+    player.damage += damage;
+    if (e.hp <= 0) killEnemy(room, e, player);
+  }
+  const fxList = Array.isArray(body.fx) ? body.fx.slice(0, 8) : body.fx ? [body.fx] : [];
+  for (const fx of fxList) {
+    const safe = sanitizeFx(fx, player);
+    if (safe) addEvent(room, safe);
+  }
+}
+
+// --------------------------- REALTIME / WEBSOCKET ---------------------------
+// Implementação enxuta do RFC 6455 para não adicionar dependências ao projeto.
+function wsFrame(payload, opcode = 0x1) {
+  const data = Buffer.isBuffer(payload) ? payload : Buffer.from(String(payload));
+  let header;
+  if (data.length < 126) {
+    header = Buffer.allocUnsafe(2);
+    header[0] = 0x80 | opcode;
+    header[1] = data.length;
+  } else if (data.length <= 0xffff) {
+    header = Buffer.allocUnsafe(4);
+    header[0] = 0x80 | opcode;
+    header[1] = 126;
+    header.writeUInt16BE(data.length, 2);
+  } else {
+    header = Buffer.allocUnsafe(10);
+    header[0] = 0x80 | opcode;
+    header[1] = 127;
+    header.writeBigUInt64BE(BigInt(data.length), 2);
+  }
+  return Buffer.concat([header, data]);
+}
+
+function wsSend(conn, obj) {
+  const socket = conn.socket;
+  if (!socket || socket.destroyed || !socket.writable) return false;
+  // Não acumula uma fila enorme em conexões lentas. O próximo snapshot corrige tudo.
+  if (socket.writableLength > 768 * 1024) return false;
+  try {
+    socket.write(wsFrame(JSON.stringify(obj)));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function wsClose(conn, code = 1000, reason = '') {
+  if (!conn || !conn.socket || conn.socket.destroyed) return;
+  const reasonBuf = Buffer.from(String(reason).slice(0, 120));
+  const payload = Buffer.allocUnsafe(2 + reasonBuf.length);
+  payload.writeUInt16BE(code, 0);
+  reasonBuf.copy(payload, 2);
+  try { conn.socket.write(wsFrame(payload, 0x8)); } catch {}
+  conn.socket.end();
+}
+
+function handleRealtimeMessage(conn, raw) {
+  let msg;
+  try { msg = JSON.parse(raw); } catch { return; }
+  if (!msg || typeof msg !== 'object') return;
+  const room = rooms.get(conn.roomId);
+  if (!room) return wsClose(conn, 4004, 'SALA_NAO_ENCONTRADA');
+  const player = room.players.get(conn.playerId);
+  if (!player || player.token !== conn.token) return wsClose(conn, 4001, 'SESSAO_INVALIDA');
+  player.lastSeen = Date.now();
+  player.connected = true;
+
+  if (msg.type === 'input') applyPlayerInput(room, player, msg);
+  else if (msg.type === 'dash') triggerPlayerDash(room, player, msg);
+  else if (msg.type === 'combat') applyCombatPacket(room, player, msg);
+  else if (msg.type === 'heartbeat') { /* lastSeen acima já é o heartbeat */ }
+}
+
+function parseWsFrames(conn, chunk) {
+  conn.buffer = conn.buffer.length ? Buffer.concat([conn.buffer, chunk]) : Buffer.from(chunk);
+  while (conn.buffer.length >= 2) {
+    const b0 = conn.buffer[0], b1 = conn.buffer[1];
+    const fin = (b0 & 0x80) !== 0;
+    const opcode = b0 & 0x0f;
+    const masked = (b1 & 0x80) !== 0;
+    let len = b1 & 0x7f;
+    let offset = 2;
+    if (!fin) return wsClose(conn, 1003, 'FRAGMENTACAO_NAO_SUPORTADA');
+    if (len === 126) {
+      if (conn.buffer.length < 4) return;
+      len = conn.buffer.readUInt16BE(2);
+      offset = 4;
+    } else if (len === 127) {
+      if (conn.buffer.length < 10) return;
+      const big = conn.buffer.readBigUInt64BE(2);
+      if (big > BigInt(WS_MAX_MESSAGE)) return wsClose(conn, 1009, 'MENSAGEM_GRANDE');
+      len = Number(big);
+      offset = 10;
+    }
+    if (len > WS_MAX_MESSAGE) return wsClose(conn, 1009, 'MENSAGEM_GRANDE');
+    if (!masked) return wsClose(conn, 1002, 'FRAME_SEM_MASK');
+    if (conn.buffer.length < offset + 4 + len) return;
+    const mask = conn.buffer.subarray(offset, offset + 4);
+    offset += 4;
+    const payload = Buffer.from(conn.buffer.subarray(offset, offset + len));
+    conn.buffer = conn.buffer.subarray(offset + len);
+    for (let i = 0; i < payload.length; i++) payload[i] ^= mask[i & 3];
+
+    if (opcode === 0x8) return wsClose(conn, 1000, 'TCHAU');
+    if (opcode === 0x9) {
+      try { conn.socket.write(wsFrame(payload, 0xA)); } catch {}
+      continue;
+    }
+    if (opcode === 0xA) {
+      conn.player.lastSeen = Date.now();
+      continue;
+    }
+    if (opcode === 0x1) handleRealtimeMessage(conn, payload.toString('utf8'));
+  }
+}
+
+function attachWebSocketServer(server) {
+  server.on('upgrade', (req, socket, head) => {
+    const urlObj = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
+    if (urlObj.pathname !== '/ws') { socket.destroy(); return; }
+    const key = req.headers['sec-websocket-key'];
+    const upgrade = String(req.headers.upgrade || '').toLowerCase();
+    if (!key || upgrade !== 'websocket') { socket.destroy(); return; }
+
+    let room, player;
+    try {
+      ({ room, player } = authRoom(Object.fromEntries(urlObj.searchParams.entries())));
+    } catch {
+      socket.write('HTTP/1.1 401 Unauthorized\r\nConnection: close\r\n\r\n');
+      socket.destroy();
+      return;
+    }
+
+    const accept = crypto.createHash('sha1').update(key + WS_GUID).digest('base64');
+    socket.write(
+      'HTTP/1.1 101 Switching Protocols\r\n' +
+      'Upgrade: websocket\r\n' +
+      'Connection: Upgrade\r\n' +
+      `Sec-WebSocket-Accept: ${accept}\r\n\r\n`
+    );
+    socket.setNoDelay(true);
+    socket.setKeepAlive(true, 10000);
+    const conn = {
+      socket,
+      roomId: room.id,
+      playerId: player.id,
+      token: player.token,
+      player,
+      buffer: Buffer.alloc(0),
+      lastEventSeq: 0,
+      runId: room.runId,
+      lastPushAt: 0
+    };
+    realtimeClients.add(conn);
+    const cleanup = () => realtimeClients.delete(conn);
+    socket.on('data', data => parseWsFrames(conn, data));
+    socket.on('close', cleanup);
+    socket.on('end', cleanup);
+    socket.on('error', cleanup);
+    if (head && head.length) parseWsFrames(conn, head);
+    wsSend(conn, { type: 'hello', roomId: room.id, playerId: player.id });
+    wsSend(conn, { type: 'state', room: snapshot(room, player.id, 0) });
+    conn.lastEventSeq = room.eventSeq;
+  });
+}
+
 async function handleApi(req, res, urlObj) {
   try {
     if (req.method === 'GET' && urlObj.pathname === '/api/health') {
@@ -632,7 +869,7 @@ async function handleApi(req, res, urlObj) {
     if (req.method === 'GET' && urlObj.pathname === '/api/state') {
       const q = Object.fromEntries(urlObj.searchParams.entries());
       const { room, player } = authRoom(q);
-      return json(res, 200, { ok: true, room: snapshot(room, player.id) });
+      return json(res, 200, { ok: true, room: snapshot(room, player.id, Number(q.eventSeq || 0)) });
     }
 
     if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'METHOD_NOT_ALLOWED' });
@@ -678,30 +915,13 @@ async function handleApi(req, res, urlObj) {
 
     if (urlObj.pathname === '/api/input') {
       const { room, player } = authRoom(body);
-      if (room.mode !== 'running') return json(res, 200, { ok: true });
-      let dx = clamp(Number(body.dx || 0), -1, 1);
-      let dy = clamp(Number(body.dy || 0), -1, 1);
-      const m = Math.hypot(dx, dy);
-      if (m > 1) { dx /= m; dy /= m; }
-      player.inputX = dx;
-      player.inputY = dy;
-      player.aim = Number.isFinite(Number(body.aim)) ? Number(body.aim) : player.aim;
+      applyPlayerInput(room, player, body);
       return json(res, 200, { ok: true });
     }
 
     if (urlObj.pathname === '/api/dash') {
       const { room, player } = authRoom(body);
-      if (room.mode !== 'running' || rewardPaused(room) || room.manualPaused || !player.alive) return json(res, 200, { ok: false });
-      if (player.dashCooldown > 0 || player.dashActive > 0) return json(res, 200, { ok: false, cooldown: player.dashCooldown });
-      let dx = Number(body.dx || 0), dy = Number(body.dy || 0);
-      let m = Math.hypot(dx, dy);
-      if (m < .1) { dx = Math.cos(player.aim); dy = Math.sin(player.aim); m = 1; }
-      player.dashDirX = dx / m; player.dashDirY = dy / m;
-      player.dashActive = .18;
-      player.dashCooldown = player.dashCooldownMax;
-      player.invuln = .26;
-      addEvent(room, { type: 'dash', playerId: player.id, x: player.x, y: player.y, dx: player.dashDirX, dy: player.dashDirY });
-      return json(res, 200, { ok: true });
+      return json(res, 200, triggerPlayerDash(room, player, body));
     }
 
     if (urlObj.pathname === '/api/stats') {
@@ -728,26 +948,7 @@ async function handleApi(req, res, urlObj) {
 
     if (urlObj.pathname === '/api/combat') {
       const { room, player } = authRoom(body);
-      if (room.mode !== 'running' || rewardPaused(room) || room.manualPaused || !player.alive || !canCombat(player)) return json(res, 200, { ok: true });
-      const hits = Array.isArray(body.hits) ? body.hits.slice(0, 80) : [];
-      const seen = new Set();
-      for (const h of hits) {
-        const enemyId = Number(h.id);
-        if (!Number.isFinite(enemyId) || seen.has(enemyId)) continue;
-        seen.add(enemyId);
-        const e = room.enemies.get(enemyId);
-        if (!e) continue;
-        const damage = clamp(Number(h.damage || 0), 0, 100000);
-        if (damage <= 0) continue;
-        e.hp -= damage;
-        player.damage += damage;
-        if (e.hp <= 0) killEnemy(room, e, player);
-      }
-      const fxList = Array.isArray(body.fx) ? body.fx.slice(0, 8) : body.fx ? [body.fx] : [];
-      for (const fx of fxList) {
-        const safe = sanitizeFx(fx, player);
-        if (safe) addEvent(room, safe);
-      }
+      applyCombatPacket(room, player, body);
       return json(res, 200, { ok: true });
     }
 
@@ -785,6 +986,36 @@ const server = http.createServer((req, res) => {
   if (urlObj.pathname.startsWith('/api/')) return handleApi(req, res, urlObj);
   return serveStatic(req, res, urlObj);
 });
+
+attachWebSocketServer(server);
+
+// Push contínuo: não espera request/response como o polling antigo.
+setInterval(() => {
+  const now = Date.now();
+  for (const conn of [...realtimeClients]) {
+    const room = rooms.get(conn.roomId);
+    const player = room && room.players.get(conn.playerId);
+    if (!room || !player || player.token !== conn.token || conn.socket.destroyed) {
+      realtimeClients.delete(conn);
+      continue;
+    }
+    if (now - player.lastSeen > 45000) {
+      wsClose(conn, 4000, 'TIMEOUT');
+      realtimeClients.delete(conn);
+      continue;
+    }
+    const pushEvery = room.mode === 'running' ? STATE_PUSH_MS : 250;
+    if (now - conn.lastPushAt < pushEvery) continue;
+    conn.lastPushAt = now;
+    if (conn.runId !== room.runId) {
+      conn.runId = room.runId;
+      conn.lastEventSeq = 0;
+    }
+    if (wsSend(conn, { type: 'state', room: snapshot(room, player.id, conn.lastEventSeq) })) {
+      conn.lastEventSeq = room.eventSeq;
+    }
+  }
+}, STATE_PUSH_MS).unref();
 
 let lastTick = Date.now();
 setInterval(() => {
