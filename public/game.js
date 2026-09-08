@@ -35,6 +35,19 @@
   const fmtTime = s => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(Math.floor(s % 60)).padStart(2, '0')}`;
   const PALETTE = ['#2563eb','#dc2626','#16a34a','#9333ea','#f97316','#ec4899','#0891b2','#eab308'];
 
+  // --------------------------- SPRITE DO JOGADOR ---------------------------
+  // Primeira animação real do personagem: RUN para a direita.
+  // O lado esquerdo é espelhado no canvas até termos sprites próprias.
+  const playerRunRight = Array.from({length:5},(_,i)=>{
+    const img=new Image();
+    img.decoding='async';
+    img.src=`/assets/player/run_right_${String(i+1).padStart(2,'0')}.png`;
+    return img;
+  });
+  const PLAYER_RUN_FPS = 10.5;
+  const PLAYER_SPRITE_SIZE = 122;
+  function playerSpriteReady(img){return !!(img&&img.complete&&img.naturalWidth>0)}
+
   let audioCtx = null;
   function resumeAudio() { if (!audioCtx) { const AC = window.AudioContext || window.webkitAudioContext; if (AC) audioCtx = new AC(); } if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume(); }
   function tone(freq, dur=.06, type='square', gain=.012, delay=0) { if (!audioCtx) return; const t=audioCtx.currentTime+delay,o=audioCtx.createOscillator(),g=audioCtx.createGain(); o.type=type;o.frequency.setValueAtTime(freq,t);g.gain.setValueAtTime(gain,t);g.gain.exponentialRampToValueAtTime(.0001,t+dur);o.connect(g).connect(audioCtx.destination);o.start(t);o.stop(t+dur); }
@@ -472,7 +485,84 @@
 
   function drawEnemy(e,now){if(!onScreen(e.x,e.y,190))return;const s=worldToScreen(e.x,e.y),z=e.size||1,flap=Math.sin(now*7+e.id*.7)*12*z;ctx.save();ctx.translate(s.x,s.y);const me=getMeRender();if(me&&me.x<e.x)ctx.scale(-1,1);const accent=e.isBoss?e.color:e.elite?'#dc2626':e.type==='owl'?'#9333ea':'#111';roughCircle(5*z,3*z,8*z,2.4,e.seed+1,'#fff',1,accent);roughCircle(15*z,0,5*z,2.1,e.seed+2,'#fff',1,accent);wobbleLine(19*z,0,30*z,-2*z,2,e.seed+3,1,accent);ctx.beginPath();ctx.moveTo(4*z,2*z);ctx.quadraticCurveTo(-8*z,-14*z-flap,-28*z,-9*z-flap*.25);ctx.quadraticCurveTo(-46*z,-7*z,-57*z,-1*z);ctx.moveTo(4*z,2*z);ctx.quadraticCurveTo(17*z,-13*z+flap,36*z,-8*z+flap*.25);ctx.quadraticCurveTo(49*z,-6*z,60*z,-2*z);ctx.strokeStyle=accent;ctx.lineWidth=Math.max(2,2.5*z);ctx.lineCap='round';ctx.stroke();roughCircle(16*z,-1*z,1.2*z,1.2,e.seed+9,accent,1,accent);if(e.elite&&!e.isBoss)roughStar(0,-27*z,7*z,3*z,now,e.seed+12,'#fff','#dc2626');ctx.restore();if(e.elite||e.isBoss){const bw=e.isBoss?170:72,bh=e.isBoss?10:7,x=s.x-bw/2,y=s.y-e.radius-30;ctx.fillStyle='#fff';ctx.fillRect(x,y,bw,bh);ctx.strokeStyle='#111';ctx.lineWidth=2;ctx.strokeRect(x,y,bw,bh);ctx.fillStyle=accent;ctx.fillRect(x+2,y+2,(bw-4)*clamp(e.hp/e.maxHp,0,1),bh-4);if(e.isBoss)drawText(e.name,s.x,y-13,13,'center',900,1,accent)}}
 
-  function drawPlayer(p,isMe,now){if(!onScreen(p.x,p.y,130))return;const s=worldToScreen(p.x,p.y),moving=Math.hypot((p.tx||p.x)-p.x,(p.ty||p.y)-p.y)>.2,bob=moving?Math.sin(now*9+p.id.length)*2.7:Math.sin(now*3)*.6,a=p.aim||0;ctx.save();ctx.translate(s.x,s.y+bob);ctx.globalAlpha=p.alive?1:.38;ctx.beginPath();ctx.ellipse(0,20,24,8,0,0,TAU);ctx.strokeStyle='rgba(17,17,17,.2)';ctx.lineWidth=2;ctx.stroke();const stride=moving?Math.sin(now*10)*7:0;wobbleLine(-5,10,-8-stride,28,3,901,1,p.color);wobbleLine(6,10,8+stride,28,3,902,1,p.color);roughCircle(0,-3,14,3,903,'#fff',1,p.color);wobbleLine(-11,-13,-13,8,3,904,1,p.color);wobbleLine(11,-13,13,8,3,905,1,p.color);roughCircle(0,-30,12,3,906,'#fff',1,p.color);wobbleLine(-10,-35,9,-36,2.5,907,1,p.color);wobbleLine(0,-7,Math.cos(a)*14,-8+Math.sin(a)*14,3,909,1,p.color);wobbleLine(Math.cos(a)*14,-8+Math.sin(a)*14,Math.cos(a)*48,-8+Math.sin(a)*48,4,910,1,p.color);ctx.restore();drawText(p.name,s.x,s.y-58,isMe?13:11,'center',900,1,p.color);if(p.shield>0)roughCircle(s.x,s.y,34,2.3,944,null,.6,p.color);if(!p.alive){drawText('CAÍDO',s.x,s.y+46,12,'center',1000,1,'#dc2626');const pct=clamp(p.reviveProgress/3,0,1);ctx.fillStyle='#fff';ctx.fillRect(s.x-35,s.y+58,70,7);ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.strokeRect(s.x-35,s.y+58,70,7);ctx.fillStyle='#16a34a';ctx.fillRect(s.x-33,s.y+60,66*pct,3)}}
+  function drawPlayerFallback(p,isMe,now){
+    if(!onScreen(p.x,p.y,130))return;
+    const s=worldToScreen(p.x,p.y),moving=isPlayerMoving(p,isMe),bob=moving?Math.sin(now*9+p.id.length)*2:Math.sin(now*3)*.6,a=p.aim||0;
+    ctx.save();ctx.translate(s.x,s.y+bob);ctx.globalAlpha=p.alive?1:.38;
+    ctx.beginPath();ctx.ellipse(0,20,24,8,0,0,TAU);ctx.strokeStyle='rgba(17,17,17,.2)';ctx.lineWidth=2;ctx.stroke();
+    const stride=moving?Math.sin(now*10)*7:0;
+    wobbleLine(-5,10,-8-stride,28,3,901,1,p.color);wobbleLine(6,10,8+stride,28,3,902,1,p.color);
+    roughCircle(0,-3,14,3,903,'#fff',1,p.color);wobbleLine(-11,-13,-13,8,3,904,1,p.color);wobbleLine(11,-13,13,8,3,905,1,p.color);
+    roughCircle(0,-30,12,3,906,'#fff',1,p.color);wobbleLine(-10,-35,9,-36,2.5,907,1,p.color);
+    wobbleLine(0,-7,Math.cos(a)*14,-8+Math.sin(a)*14,3,909,1,p.color);wobbleLine(Math.cos(a)*14,-8+Math.sin(a)*14,Math.cos(a)*48,-8+Math.sin(a)*48,4,910,1,p.color);
+    ctx.restore();
+  }
+  function isPlayerMoving(p,isMe){
+    if(!p||!p.alive)return false;
+    if(isMe){
+      const m=currentMove();
+      return Math.hypot(m.x,m.y)>.05 || performance.now()<localMotion.dashUntil;
+    }
+    const netSpeed=Math.hypot(p.netVx||0,p.netVy||0);
+    const targetGap=Math.hypot((p.tx??p.x)-p.x,(p.ty??p.y)-p.y);
+    return netSpeed>8 || targetGap>2.2;
+  }
+  function playerFacingRight(p,isMe){
+    let dx=0;
+    if(isMe){
+      const m=currentMove();
+      dx=m.x;
+    }else dx=p.netVx||0;
+    if(Math.abs(dx)>.08)return dx>0;
+    return Math.cos(p.aim||0)>=0;
+  }
+  function drawPlayer(p,isMe,now){
+    if(!onScreen(p.x,p.y,150))return;
+    const s=worldToScreen(p.x,p.y);
+    const moving=isPlayerMoving(p,isMe);
+    const facingRight=playerFacingRight(p,isMe);
+    const seed=(p.id||'p').split('').reduce((a,c)=>a+c.charCodeAt(0),0);
+    const frameIndex=moving?Math.floor(now*PLAYER_RUN_FPS+seed*.013)%playerRunRight.length:3;
+    const img=playerRunRight[frameIndex];
+
+    // Marcador colorido mantém cada jogador reconhecível no co-op.
+    ctx.save();
+    ctx.globalAlpha=p.alive?.52:.22;
+    ctx.beginPath();ctx.ellipse(s.x,s.y+34,30,9,0,0,TAU);
+    ctx.strokeStyle=p.color;ctx.lineWidth=isMe?3:2;ctx.stroke();
+    ctx.restore();
+
+    if(playerSpriteReady(img)){
+      const size=PLAYER_SPRITE_SIZE;
+      const idleBob=moving?0:Math.sin(now*2.7+seed)*.65;
+      ctx.save();
+      ctx.translate(s.x,s.y+idleBob);
+      ctx.globalAlpha=p.alive?1:.42;
+      if(!p.alive){
+        // Até existir a sprite "down", usamos a arte atual tombada.
+        ctx.translate(0,9);
+        ctx.rotate((seed%2?1:-1)*Math.PI/2);
+        ctx.scale(facingRight?1:-1,1);
+      }else{
+        ctx.scale(facingRight?1:-1,1);
+      }
+      ctx.imageSmoothingEnabled=true;
+      ctx.drawImage(img,-size/2,-size*.50,size,size);
+      ctx.restore();
+    }else{
+      drawPlayerFallback(p,isMe,now);
+    }
+
+    drawText(p.name,s.x,s.y-62,isMe?13:11,'center',900,1,p.color);
+    if(p.shield>0)roughCircle(s.x,s.y,43,2.3,944,null,.65,p.color);
+    if(!p.alive){
+      drawText('CAÍDO',s.x,s.y+52,12,'center',1000,1,'#dc2626');
+      const pct=clamp(p.reviveProgress/3,0,1);
+      ctx.fillStyle='#fff';ctx.fillRect(s.x-35,s.y+64,70,7);
+      ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.strokeRect(s.x-35,s.y+64,70,7);
+      ctx.fillStyle='#16a34a';ctx.fillRect(s.x-33,s.y+66,66*pct,3);
+    }
+  }
 
   function drawZones(){for(const z of [...remoteZones,...inkZones,...trailZones]){if(!onScreen(z.x,z.y,z.radius+60))continue;const s=worldToScreen(z.x,z.y),alpha=.18+.22*clamp(z.life/Math.min(1.2,z.maxLife||1),0,1);paintSplat(s.x,s.y,z.radius,z.color,z.seed,alpha);if(z===inkZones[0]){} }}
   function drawPickups(now){if(!net.state)return;for(const p of net.state.pickups||[]){if(!onScreen(p.x,p.y,80))continue;const s=worldToScreen(p.x,p.y),bob=Math.sin(now*3+p.seed)*5,c=({heal:'#dc2626',double:'#2563eb',haste:'#16a34a',nuke:'#9333ea',coin:'#eab308',shield:'#0891b2'})[p.kind]||'#111';roughStar(s.x,s.y+bob,20,9,now*.7,p.seed,'#fff',c);drawText(({heal:'♥',double:'×2',haste:'>>',nuke:'!',coin:'$',shield:'O'})[p.kind]||'?',s.x,s.y+bob+1,p.kind==='double'?11:14,'center',1000,1,c)}}
