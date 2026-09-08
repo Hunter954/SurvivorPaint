@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#fffdf5" />
+  <meta name="description" content="Rabisco Survivors CO-OP — roguelike survivor desenhado à mão, jogável online com amigos." />
+  <title>Rabisco Survivors CO-OP</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <main class="game-shell">
+    <canvas id="game" width="1280" height="720" aria-label="Rabisco Survivors CO-OP"></canvas>
+
+    <section id="menuOverlay" class="overlay visible">
+      <div class="paper-card menu-card">
+        <div class="paint-title">RABISCO SURVIVORS <span>CO-OP</span></div>
+        <p class="subtitle">Vampire-survivor de aves, tinta, machados, páginas giratórias e caos colorido — tudo com cara de desenho feito no Paint.</p>
+
+        <div class="menu-columns">
+          <div class="play-panel">
+            <label class="field-label" for="nameInput">SEU NOME NO RABISCO</label>
+            <input id="nameInput" class="paint-input" maxlength="18" autocomplete="nickname" placeholder="Ex.: Kevin" />
+
+            <button id="soloBtn" class="big primary" type="button">JOGAR SOLO</button>
+            <button id="createRoomBtn" class="big secondary" type="button">CRIAR SALA CO-OP</button>
+
+            <div id="joinBox" class="join-box hidden">
+              <div class="join-head">VOCÊ RECEBEU UM CONVITE</div>
+              <div>Sala <b id="joinRoomCode">------</b></div>
+              <button id="joinRoomBtn" class="big accent" type="button">ENTRAR NA SALA</button>
+            </div>
+
+            <div class="control-notes">
+              <div><b>WASD / SETAS</b><span>andar</span></div>
+              <div><b>MOUSE</b><span>mirar</span></div>
+              <div><b>AUTO</b><span>armas atacam sozinhas</span></div>
+              <div><b>ESPAÇO</b><span>dash</span></div>
+              <div><b>P</b><span>host pausa a sala</span></div>
+              <div><b>1–3</b><span>escolher evolução</span></div>
+            </div>
+          </div>
+
+          <div class="meta-panel">
+            <div class="scribble-section-title">MELHORIAS PERMANENTES</div>
+            <div class="meta-top">Moedas: <b id="coinsLabel">0</b> 🪙 · Recorde: <b id="bestTimeLabel">00:00</b></div>
+            <div id="metaShop" class="meta-shop"></div>
+            <button id="resetSaveBtn" class="small danger" type="button">ZERAR PROGRESSO LOCAL</button>
+          </div>
+        </div>
+
+        <div class="tiny footer-note">Sala online: até 4 jogadores. O host cria a sala, copia o link e cada amigo joga na própria tela, na mesma run.</div>
+      </div>
+    </section>
+
+    <section id="lobbyOverlay" class="overlay">
+      <div class="paper-card lobby-card">
+        <div class="paint-title small">SALA <span id="lobbyCode">------</span></div>
+        <p class="subtitle">Compartilhe este link antes da run começar.</p>
+
+        <div class="invite-row">
+          <input id="inviteLink" class="paint-input" readonly />
+          <button id="copyInviteBtn" type="button">COPIAR LINK</button>
+          <button id="shareInviteBtn" type="button">COMPARTILHAR</button>
+        </div>
+
+        <div id="lobbyPlayers" class="lobby-players"></div>
+        <div id="lobbyMessage" class="lobby-message">Aguardando jogadores...</div>
+
+        <div class="lobby-actions">
+          <button id="startRoomBtn" class="big primary" type="button">INICIAR RUN</button>
+          <button id="leaveRoomBtn" class="big secondary" type="button">SAIR DA SALA</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="levelOverlay" class="overlay reward-overlay">
+      <div class="paper-card level-card">
+        <div class="paint-title small">SUBIU DE NÍVEL!</div>
+        <p>O tempo parou para a sala. Escolha 1 evolução:</p>
+        <div id="levelChoices" class="choice-grid"></div>
+      </div>
+    </section>
+
+    <section id="chestOverlay" class="overlay reward-overlay">
+      <div class="paper-card chest-card">
+        <div class="paint-title small">BAÚ DO RABISCO!</div>
+        <div id="chestReward" class="chest-reward"></div>
+        <button id="chestContinueBtn" class="big accent" type="button">PEGAR E CONTINUAR</button>
+      </div>
+    </section>
+
+    <section id="waitOverlay" class="overlay soft click-through">
+      <div class="paper-card wait-card">
+        <div class="paint-title mini">RUN PAUSADA</div>
+        <div id="waitMessage">Um amigo está escolhendo uma evolução...</div>
+      </div>
+    </section>
+
+    <section id="manualPauseOverlay" class="overlay soft click-through">
+      <div class="paper-card wait-card">
+        <div class="paint-title mini">PAUSADO PELO HOST</div>
+        <div>O mundo de rabisco ficou congelado.</div>
+      </div>
+    </section>
+
+    <section id="downOverlay" class="overlay soft click-through down-overlay">
+      <div class="paper-card wait-card">
+        <div class="paint-title mini">VOCÊ CAIU!</div>
+        <div>Um amigo precisa ficar perto de você por <b>3 segundos</b> para reviver.</div>
+        <div id="reviveLabel" class="revive-label">Revive 0%</div>
+      </div>
+    </section>
+
+    <section id="gameOverOverlay" class="overlay">
+      <div class="paper-card gameover-card">
+        <div id="gameOverTitle" class="paint-title">FIM DA RUN</div>
+        <div id="runSummary" class="summary-grid"></div>
+        <div id="restartHint" class="lobby-message"></div>
+        <div class="lobby-actions">
+          <button id="restartBtn" class="big primary" type="button">NOVA RUN COM A MESMA SALA</button>
+          <button id="menuBtn" class="big secondary" type="button">VOLTAR AO MENU</button>
+        </div>
+      </div>
+    </section>
+
+    <div id="toast" class="toast"></div>
+
+    <div id="touchControls" class="touch-controls" aria-hidden="true">
+      <div id="joystick" class="joystick"><div id="stick" class="stick"></div></div>
+      <button id="dashBtn" class="dash-btn" type="button">DASH</button>
+    </div>
+  </main>
+
+  <script src="game.js"></script>
+</body>
+</html>

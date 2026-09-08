@@ -1,0 +1,16 @@
+{
+  "name": "rabisco-survivors-coop",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Roguelike survivor multiplayer desenhado no estilo Paint, pronto para Railway.",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js",
+    "check": "node --check server.js && node --check public/game.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "license": "MIT"
+}
