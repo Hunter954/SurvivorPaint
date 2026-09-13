@@ -64,7 +64,7 @@
 
   const STAGES = [
     {
-      name: 'AVENIDA BRASIL', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'avenidaBrasil', plate: ['AV. BRASIL', 'CENTRO'], sky: ['#56bfe5', '#97d9eb', '#d9eff0'],
+      name: 'AVENIDA BRASIL', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'avenidaBrasil', art: 'avenida-brasil', plate: ['AV. BRASIL', 'CENTRO'], sky: ['#56bfe5', '#97d9eb', '#d9eff0'],
       stores: [
         { x: 0, w: 120, color: '#e5ebe5', trim: '#219b54', sign: 'FARMÁCIA', awning: '#f5f5ee' },
         { x: 120, w: 126, color: '#edd2a8', trim: '#bf712b', sign: 'CAFÉ BRASIL', awning: '#7d301f' },
@@ -73,7 +73,7 @@
       ]
     },
     {
-      name: 'RUA ALMIRANTE BARROSO', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'almirante', plate: ['R. ALMIRANTE', 'BARROSO'], sky: ['#f0a164', '#f7c78d', '#fbe1b4'],
+      name: 'RUA ALMIRANTE BARROSO', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'almirante', art: 'almirante-barroso', plate: ['R. ALMIRANTE', 'BARROSO'], sky: ['#f0a164', '#f7c78d', '#fbe1b4'],
       stores: [
         { x: 0, w: 132, color: '#d9d0e8', trim: '#684496', sign: 'GALERIA', awning: '#ece4f5' },
         { x: 132, w: 122, color: '#e8d3ba', trim: '#9f5736', sign: 'HOTEL FOZ', awning: '#5c3026' },
@@ -82,29 +82,51 @@
       ]
     },
     {
-      name: 'PRAÇA DA BÍBLIA', zone: 'FOZ DO IGUAÇU • PARANÁ', kind: 'bibleSquare', plate: ['PRAÇA DA', 'BÍBLIA'], sky: ['#5eadd0', '#9bd3e3', '#e2eef0'], plaza: true, stores: []
+      name: 'PRAÇA DA BÍBLIA', zone: 'FOZ DO IGUAÇU • PARANÁ', kind: 'bibleSquare', art: 'praca-biblia', plate: ['PRAÇA DA', 'BÍBLIA'], sky: ['#5eadd0', '#9bd3e3', '#e2eef0'], plaza: true, stores: []
     },
     {
-      name: 'AV. JORGE SCHIMMELPFENG', zone: 'CATEDRAL SÃO JOÃO BATISTA', kind: 'cathedral', plate: ['AV. JORGE', 'SCHIMMELPFENG'], sky: ['#4b7695', '#88abc0', '#d2d8d5'], stores: []
+      name: 'AV. JORGE SCHIMMELPFENG', zone: 'CATEDRAL SÃO JOÃO BATISTA', kind: 'cathedral', art: 'catedral-sao-joao', plate: ['AV. JORGE', 'SCHIMMELPFENG'], sky: ['#4b7695', '#88abc0', '#d2d8d5'], stores: []
     },
     {
-      name: 'PRAÇA DA PAZ', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'peaceSquare', plate: ['PRAÇA', 'DA PAZ'], sky: ['#283463', '#685687', '#e68d72'], plaza: true, final: true, stores: []
+      name: 'PRAÇA DA PAZ', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'peaceSquare', art: 'praca-paz', plate: ['PRAÇA', 'DA PAZ'], sky: ['#283463', '#685687', '#e68d72'], plaza: true, final: true, stores: []
     }
   ];
 
   // Dez adversários adultos, fictícios e visualmente apresentados como lutadores.
   const FIGHTER_DEFS = [
-    { name: 'FAIXA', skin: '#c9865b', shirt: '#ba2839', pants: '#273241', hair: '#251811', accessory: 'bandana', hp: 48, speed: 34, damage: 7 },
-    { name: 'LUVAS', skin: '#8d5739', shirt: '#2782bf', pants: '#20293a', hair: '#141414', accessory: 'gloves', hp: 52, speed: 31, damage: 8 },
-    { name: 'MOICANO', skin: '#e0a274', shirt: '#632f86', pants: '#202428', hair: '#d93346', accessory: 'mohawk', hp: 57, speed: 37, damage: 8 },
-    { name: 'JAQUETA', skin: '#a96845', shirt: '#dd7b26', pants: '#293c57', hair: '#251b19', accessory: 'jacket', hp: 60, speed: 34, damage: 9 },
-    { name: 'BONÉ', skin: '#efbd91', shirt: '#39865a', pants: '#343442', hair: '#473124', accessory: 'cap', hp: 64, speed: 39, damage: 9 },
-    { name: 'CAPUZ', skin: '#75452f', shirt: '#4d5d73', pants: '#1f2630', hair: '#191919', accessory: 'hood', hp: 68, speed: 35, damage: 10 },
-    { name: 'COLETE', skin: '#d49368', shirt: '#323b45', pants: '#42516b', hair: '#39271d', accessory: 'vest', hp: 75, speed: 32, damage: 11 },
-    { name: 'ATLETA', skin: '#9b6041', shirt: '#e6b52e', pants: '#1c3654', hair: '#1b1512', accessory: 'headband', hp: 78, speed: 44, damage: 11 },
-    { name: 'MÁSCARA', skin: '#d7a078', shirt: '#3e314f', pants: '#242333', hair: '#171317', accessory: 'mask', hp: 86, speed: 40, damage: 12 },
-    { name: 'CAMPEÃO', skin: '#8c5437', shirt: '#8b2635', pants: '#151b25', hair: '#111111', accessory: 'champion', hp: 125, speed: 35, damage: 14, scale: 1.12 }
+    { name: 'FAIXA', sprite: 'faixa', skin: '#c9865b', shirt: '#ba2839', pants: '#273241', hair: '#251811', accessory: 'bandana', hp: 48, speed: 34, damage: 7 },
+    { name: 'LUVAS', sprite: 'luvas', skin: '#8d5739', shirt: '#2782bf', pants: '#20293a', hair: '#141414', accessory: 'gloves', hp: 52, speed: 31, damage: 8 },
+    { name: 'MOICANO', sprite: 'moicano', skin: '#e0a274', shirt: '#632f86', pants: '#202428', hair: '#d93346', accessory: 'mohawk', hp: 57, speed: 37, damage: 8 },
+    { name: 'JAQUETA', sprite: 'jaqueta', skin: '#a96845', shirt: '#dd7b26', pants: '#293c57', hair: '#251b19', accessory: 'jacket', hp: 60, speed: 34, damage: 9 },
+    { name: 'BONÉ', sprite: 'bone', skin: '#efbd91', shirt: '#39865a', pants: '#343442', hair: '#473124', accessory: 'cap', hp: 64, speed: 39, damage: 9 },
+    { name: 'CAPUZ', sprite: 'capuz', skin: '#75452f', shirt: '#4d5d73', pants: '#1f2630', hair: '#191919', accessory: 'hood', hp: 68, speed: 35, damage: 10 },
+    { name: 'COLETE', sprite: 'colete', skin: '#d49368', shirt: '#323b45', pants: '#42516b', hair: '#39271d', accessory: 'vest', hp: 75, speed: 32, damage: 11 },
+    { name: 'ATLETA', sprite: 'atleta', skin: '#9b6041', shirt: '#e6b52e', pants: '#1c3654', hair: '#1b1512', accessory: 'headband', hp: 78, speed: 44, damage: 11 },
+    { name: 'MÁSCARA', sprite: 'mascara', skin: '#d7a078', shirt: '#3e314f', pants: '#242333', hair: '#171317', accessory: 'mask', hp: 86, speed: 40, damage: 12 },
+    { name: 'CAMPEÃO', sprite: 'campeao', skin: '#8c5437', shirt: '#8b2635', pants: '#151b25', hair: '#111111', accessory: 'champion', hp: 125, speed: 35, damage: 14, scale: 1.1 }
   ];
+
+  const SPRITE_CELL = 128;
+  const SPRITE_KEYS = ['hero', ...FIGHTER_DEFS.map(fighter => fighter.sprite)];
+
+  function loadArt(src) {
+    const asset = { image: null, ready: false, failed: false, src };
+    if (typeof Image === 'undefined') return asset;
+    const image = new Image();
+    asset.image = image;
+    image.decoding = 'async';
+    image.onload = () => { asset.ready = true; };
+    image.onerror = () => { asset.failed = true; };
+    image.src = src;
+    return asset;
+  }
+
+  const SPRITE_ART = Object.fromEntries(
+    SPRITE_KEYS.map(key => [key, loadArt(`/assets/sprites/${key}.png?v=5.0.0`)])
+  );
+  const STAGE_ART = Object.fromEntries(
+    STAGES.map(stage => [stage.art, loadArt(`/assets/stages/${stage.art}.png?v=5.0.0`)])
+  );
 
   const keys = new Set();
   const touchMove = { x: 0, y: 0, pointerId: null };
@@ -854,6 +876,14 @@
   }
 
   function drawStage(stage, clock = elapsed) {
+    const art = STAGE_ART[stage.art];
+    if (art?.ready) {
+      ctx.drawImage(art.image, 0, 0, W, H);
+      const plateY = stage.kind === 'avenidaBrasil' ? 126 : stage.kind === 'almirante' ? 121 : 118;
+      drawStreetPlate(stage, 392, plateY);
+      return;
+    }
+
     drawSkyline(stage, clock);
 
     if (stage.kind === 'avenidaBrasil') {
@@ -1083,16 +1113,56 @@
     }
   }
 
+  function spriteFrame(actor, isPlayer) {
+    if (actor.state === 'rest') return 12;
+    if (actor.state === 'stand') return actor.stateTime < .3 ? 13 : 14;
+    if (actor.state === 'ko') return 15;
+    if (actor.state === 'hurt') return 10;
+    if (actor.state === 'punch' || (!isPlayer && actor.state === 'attack')) return actor.stateTime < .11 ? 6 : 7;
+    if (actor.state === 'kick') return actor.stateTime < .14 || actor.stateTime > .4 ? 8 : 9;
+    if (actor.state === 'walk' || actor.state === 'chase') return [2, 3, 4, 5][Math.floor(actor.stateTime * 8) % 4];
+    return Math.floor(actor.stateTime * 2.4) % 2;
+  }
+
+  function drawSpriteActor(actor, isPlayer) {
+    const key = isPlayer ? 'hero' : actor.def?.sprite;
+    const asset = SPRITE_ART[key];
+    if (!asset?.ready) return false;
+
+    const frame = spriteFrame(actor, isPlayer);
+    const col = frame % 4;
+    const row = Math.floor(frame / 4);
+    const scale = actor.def?.scale || 1;
+    const size = 64;
+    const groundAnchor = frame >= 12 ? .87 : .97;
+    drawShadow(actor, (actor.state === 'ko' ? 36 : actor.state === 'rest' ? 29 : 25) * scale);
+
+    ctx.save();
+    ctx.translate(Math.round(actor.x), Math.round(actor.y));
+    ctx.scale(actor.facing * scale, scale);
+    if (actor.flash > 0 && Math.floor(actor.flash * 60) % 2 === 0) ctx.globalAlpha = .42;
+    ctx.drawImage(asset.image, col * SPRITE_CELL, row * SPRITE_CELL, SPRITE_CELL, SPRITE_CELL, -size / 2, -size * groundAnchor, size, size);
+    ctx.restore();
+
+    if (!isPlayer && actor.state === 'rest') text('...', actor.x, actor.y - 59 + Math.sin(demoClock * 3) * 2, 7, '#ffffff', 'center');
+    return true;
+  }
+
   function drawActor(actor, isPlayer = false) {
-    if (actor.state === 'rest') drawRestingFighter(actor);
-    else if (actor.state === 'ko') drawKnockedOut(actor, isPlayer);
-    else drawStandingFighter(actor, isPlayer);
+    const usedSprite = drawSpriteActor(actor, isPlayer);
+    if (!usedSprite) {
+      if (actor.state === 'rest') drawRestingFighter(actor);
+      else if (actor.state === 'ko') drawKnockedOut(actor, isPlayer);
+      else drawStandingFighter(actor, isPlayer);
+    }
 
     if (!isPlayer && !actor.defeated && !['rest', 'stand'].includes(actor.state)) {
       const width = 28;
-      box(actor.x - width / 2 - 1, actor.y - 50, width + 2, 5, '#080a0f');
-      box(actor.x - width / 2, actor.y - 49, width * (actor.hp / actor.maxHp), 3, actor.hp / actor.maxHp < .35 ? '#ef334c' : '#ffd800');
-      text(actor.def.name, actor.x, actor.y - 53, 5, '#ffffff', 'center');
+      const labelOffset = usedSprite ? 67 * (actor.def.scale || 1) : 50;
+      const barY = Math.round(actor.y - labelOffset);
+      box(actor.x - width / 2 - 1, barY, width + 2, 5, '#080a0f');
+      box(actor.x - width / 2, barY + 1, width * (actor.hp / actor.maxHp), 3, actor.hp / actor.maxHp < .35 ? '#ef334c' : '#ffd800');
+      text(actor.def.name, actor.x, barY - 3, 5, '#ffffff', 'center');
     }
   }
 

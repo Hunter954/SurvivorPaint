@@ -1,5 +1,11 @@
 # Changelog
 
+## 5.0.0 — Sprites 128×128
+
+- Folhas raster do herói e dos dez lutadores com 16 estados de animação por personagem.
+- Cenários raster 16:9 de Foz do Iguaçu integrados ao Canvas com fallback procedural.
+- Cache offline atualizado para incluir todos os sprites e fundos.
+
 ## 4.1.1 — Atualização imediata
 
 - CSS e JavaScript usam URLs versionadas para impedir que celulares mantenham arquivos antigos em cache após o deploy.

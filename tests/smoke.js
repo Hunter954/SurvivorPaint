@@ -10,12 +10,14 @@ const windowListeners = new Map();
 const elements = new Map();
 let queuedFrame = null;
 let drawCalls = 0;
+let spriteDrawCalls = 0;
 const noop = () => {};
 
 const canvasContext = new Proxy({ imageSmoothingEnabled: false }, {
   get(target, property) {
     if (property in target) return target[property];
     if (property === 'fillRect' || property === 'fillText') return () => { drawCalls += 1; };
+    if (property === 'drawImage') return () => { drawCalls += 1; spriteDrawCalls += 1; };
     if (property === 'measureText') return value => ({ width: String(value).length * 6 });
     return noop;
   },
@@ -95,6 +97,11 @@ global.matchMedia = query => ({ matches: query.includes('pointer: coarse') });
 global.screen = { orientation: {} };
 global.localStorage = { getItem: () => null, setItem: noop };
 global.requestAnimationFrame = callback => { queuedFrame = callback; return 1; };
+global.Image = class {
+  constructor() { this.onload = null; this.onerror = null; this.naturalWidth = 512; this.naturalHeight = 512; }
+  set src(value) { this._src = value; if (this.onload) this.onload(); }
+  get src() { return this._src; }
+};
 
 function tick(time) {
   assert(queuedFrame, 'o cliente deve manter o loop de animação ativo');
@@ -146,6 +153,7 @@ async function run() {
   assert(!makeElement('menuOverlay').classList.contains('visible'), 'o menu deve estar oculto durante a partida');
   assert(document.body.classList.contains('ios-device'), 'o cliente deve detectar o iPhone');
   assert(document.body.classList.contains('pseudo-fullscreen'), 'o fallback de tela cheia do iPhone deve ser ativado');
+  assert(spriteDrawCalls > 100, 'as folhas raster devem ser desenhadas no Canvas');
   assert(drawCalls > 5000, 'o Canvas deve desenhar cenário, HUD e sprites');
   console.log(`Smoke test OK: ${drawCalls} operações de desenho em 315 frames.`);
 }

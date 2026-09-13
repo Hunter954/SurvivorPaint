@@ -19,6 +19,13 @@ Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeir
 - Pedido automático de tela cheia e orientação horizontal em navegadores compatíveis.
 - Áudio retrô gerado no navegador, sem arquivos externos.
 
+## Atualização 5.0 — sprites e cenários raster
+
+- Onze folhas de personagens em 512×512, com células exatas de 128×128 e 16 quadros por personagem.
+- Estados integrados: idle, caminhada, soco, chute, dano, guarda, sentado, levantar e nocaute.
+- Cinco fundos raster em 960×540 com arte pixelada própria para Avenida Brasil, Rua Almirante Barroso, Praça da Bíblia, Catedral São João Batista e Praça da Paz.
+- O jogo mantém o desenho procedural como fallback caso um asset ainda esteja carregando ou falhe.
+
 ## Atualização 4.1 — iPhone e cenários de Foz
 
 - PWA instalável, configurado para `fullscreen` e orientação `landscape`.
@@ -76,7 +83,9 @@ SurvivorPaint/
    ├─ game.js
    ├─ manifest.webmanifest
    ├─ sw.js
-   └─ assets/icon-180.png
+   └─ assets/
+      ├─ sprites/ (folhas 512×512; células 128×128)
+      └─ stages/ (fundos raster 960×540)
 ```
 
 O projeto usa apenas Node.js 18+ e APIs nativas do navegador. Não é necessário instalar dependências.
@@ -101,7 +110,7 @@ curl http://localhost:3000/api/health
 O healthcheck deve responder:
 
 ```json
-{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"4.1.1"}
+{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"5.0.0"}
 ```
 
 ## Railway

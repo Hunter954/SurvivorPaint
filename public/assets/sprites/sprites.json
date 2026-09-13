@@ -1,0 +1,20 @@
+{
+  "sheet": { "width": 512, "height": 512, "columns": 4, "rows": 4 },
+  "cell": { "width": 128, "height": 128 },
+  "direction": "right",
+  "frames": {
+    "idle": [0, 1],
+    "walk": [2, 3, 4, 5],
+    "punch": [6, 7],
+    "kick": [8, 9],
+    "hurt": [10],
+    "guard": [11],
+    "rest": [12],
+    "stand": [13, 14],
+    "ko": [15]
+  },
+  "characters": [
+    "hero", "faixa", "luvas", "moicano", "jaqueta", "bone",
+    "capuz", "colete", "atleta", "mascara", "campeao"
+  ]
+}

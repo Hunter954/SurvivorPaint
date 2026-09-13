@@ -1,14 +1,31 @@
 'use strict';
 
-const CACHE_NAME = 'missao-foz-v4.1.1';
+const CACHE_NAME = 'missao-foz-v5.0.0';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/style.css?v=4.1.1',
-  '/game.js?v=4.1.1',
+  '/style.css?v=5.0.0',
+  '/game.js?v=5.0.0',
   '/manifest.webmanifest',
   '/assets/icon.svg',
-  '/assets/icon-180.png'
+  '/assets/icon-180.png',
+  '/assets/sprites/sprites.json',
+  '/assets/sprites/hero.png',
+  '/assets/sprites/faixa.png',
+  '/assets/sprites/luvas.png',
+  '/assets/sprites/moicano.png',
+  '/assets/sprites/jaqueta.png',
+  '/assets/sprites/bone.png',
+  '/assets/sprites/capuz.png',
+  '/assets/sprites/colete.png',
+  '/assets/sprites/atleta.png',
+  '/assets/sprites/mascara.png',
+  '/assets/sprites/campeao.png',
+  '/assets/stages/avenida-brasil.png',
+  '/assets/stages/almirante-barroso.png',
+  '/assets/stages/praca-biblia.png',
+  '/assets/stages/catedral-sao-joao.png',
+  '/assets/stages/praca-paz.png'
 ];
 
 self.addEventListener('install', event => {
