@@ -1,13 +1,14 @@
 {
-  "name": "rabisco-survivors-coop",
-  "version": "3.0.0",
+  "name": "darlon-dutra-missao-foz",
+  "version": "4.0.0",
   "private": true,
-  "description": "Roguelike survivor multiplayer desenhado no estilo Paint, pronto para Railway.",
+  "description": "Beat'em up mobile em pixel art ambientado em ruas fictícias inspiradas em Foz do Iguaçu.",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
     "dev": "node server.js",
-    "check": "node --check server.js && node --check public/game.js"
+    "check": "node --check server.js && node --check public/game.js && node --check tests/smoke.js",
+    "test": "node tests/smoke.js"
   },
   "engines": {
     "node": ">=18"

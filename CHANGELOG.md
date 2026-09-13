@@ -1,4 +1,15 @@
-# Changelog — v3 CO-OP COLOR
+# Changelog
+
+## 4.0.0 — Missão Foz
+
+- Projeto convertido de survivor multiplayer para beat'em up single-player.
+- Nova direção visual em pixel art procedural.
+- Cinco fases urbanas, dez lutadores fictícios e transições em fade.
+- Combate manual com soco/chute e IA de aproximação e ataque.
+- Joystick e botões touch, fullscreen/orientação horizontal e HUD responsivo.
+- Servidor simplificado para conteúdo estático e healthcheck do Railway.
+
+## 3.0.0 — CO-OP COLOR
 
 ## Mudança estrutural
 - O jogo deixou de ser somente um HTML local e virou um projeto Node.js completo.
