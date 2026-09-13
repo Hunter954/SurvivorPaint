@@ -1,16 +1,18 @@
 'use strict';
 
-const CACHE_NAME = 'missao-foz-v5.1.0';
+const CACHE_NAME = 'missao-foz-v5.2.0';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/style.css?v=5.1.0',
-  '/game.js?v=5.1.0',
+  '/style.css?v=5.2.0',
+  '/game.js?v=5.2.0',
   '/manifest.webmanifest',
   '/assets/icon.svg',
   '/assets/icon-180.png',
   '/assets/sprites/sprites.json',
   '/assets/sprites/hero.png',
+  '/assets/sprites/hero-celebrate.png',
+  '/assets/sprites/supporters.png',
   '/assets/sprites/faixa.png',
   '/assets/sprites/luvas.png',
   '/assets/sprites/moicano.png',
@@ -63,8 +65,9 @@ self.addEventListener('fetch', event => {
     return;
   }
 
+  const cacheOptions = url.pathname.startsWith('/assets/') ? { ignoreSearch: true } : undefined;
   event.respondWith(
-    caches.match(request).then(cached => cached || fetch(request).then(response => {
+    caches.match(request, cacheOptions).then(cached => cached || fetch(request).then(response => {
       const copy = response.clone();
       caches.open(CACHE_NAME).then(cache => cache.put(request, copy));
       return response;

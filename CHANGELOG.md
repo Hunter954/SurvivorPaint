@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.2.0 — Torcida 1444 e Avenida Brasil
+
+- Avenida Brasil refeita em pixel art a partir da referência real, sem carros e com área de luta sobre a calçada portuguesa.
+- Torcida animada em preto e amarelo cresce de quatro para dezesseis pessoas conforme as fases avançam.
+- Placas e bandeiras exibem o número 1444, incluindo retrato pixelado do candidato e gritos visuais.
+- Nova sequência final: após o chefão, o protagonista comemora cercado por apoiadores, bandeiras e confetes.
+- Cache offline atualizado com os novos assets e versão 5.2.0.
+
 ## 5.1.0 — Elenco e animações renovados
 
 - Protagonista redesenhado em pixel art a partir da referência do deputado.

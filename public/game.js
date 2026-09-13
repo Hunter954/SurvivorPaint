@@ -109,7 +109,42 @@
   const SPRITE_CELL = 128;
   const SPRITE_GUTTER = 2;
   const WALK_FRAMES = [2, 3, 4, 5];
+  const ASSET_VERSION = '5.2.0';
+  const FINAL_CELEBRATION_DURATION = 5.4;
   const SPRITE_KEYS = ['hero', ...FIGHTER_DEFS.map(fighter => fighter.sprite)];
+  const CROWD_COUNTS = [4, 7, 10, 13, 16];
+  const CROWD_SLOTS = [
+    { x: 38, y: 184, scale: .82, facing: 1, prop: 'flag' },
+    { x: 442, y: 184, scale: .82, facing: -1, prop: 'sign' },
+    { x: 240, y: 180, scale: .76, facing: 1, prop: 'sign' },
+    { x: 137, y: 182, scale: .78, facing: -1, prop: 'flag' },
+    { x: 343, y: 182, scale: .78, facing: 1, prop: 'flag' },
+    { x: 84, y: 187, scale: .72, facing: 1, prop: 'sign' },
+    { x: 396, y: 187, scale: .72, facing: -1, prop: 'sign' },
+    { x: 188, y: 185, scale: .74, facing: 1, prop: 'flag' },
+    { x: 292, y: 185, scale: .74, facing: -1, prop: 'flag' },
+    { x: 13, y: 190, scale: .68, facing: 1, prop: 'sign' },
+    { x: 467, y: 190, scale: .68, facing: -1, prop: 'flag' },
+    { x: 111, y: 190, scale: .7, facing: 1, prop: 'none' },
+    { x: 369, y: 190, scale: .7, facing: -1, prop: 'none' },
+    { x: 214, y: 190, scale: .69, facing: 1, prop: 'sign' },
+    { x: 318, y: 190, scale: .69, facing: -1, prop: 'flag' },
+    { x: 266, y: 192, scale: .68, facing: 1, prop: 'none' }
+  ];
+  const CELEBRATION_RING = [
+    { x: 151, y: 207, scale: .84, facing: 1, prop: 'flag' },
+    { x: 183, y: 187, scale: .8, facing: 1, prop: 'sign' },
+    { x: 220, y: 179, scale: .76, facing: 1, prop: 'flag' },
+    { x: 260, y: 179, scale: .76, facing: -1, prop: 'sign' },
+    { x: 297, y: 187, scale: .8, facing: -1, prop: 'flag' },
+    { x: 329, y: 207, scale: .84, facing: -1, prop: 'sign' },
+    { x: 137, y: 226, scale: .86, facing: 1, prop: 'sign' },
+    { x: 343, y: 226, scale: .86, facing: -1, prop: 'flag' },
+    { x: 153, y: 246, scale: .9, facing: 1, prop: 'flag' },
+    { x: 193, y: 253, scale: .92, facing: 1, prop: 'none' },
+    { x: 287, y: 253, scale: .92, facing: -1, prop: 'sign' },
+    { x: 327, y: 246, scale: .9, facing: -1, prop: 'flag' }
+  ];
 
   function loadArt(src) {
     const asset = { image: null, ready: false, failed: false, src };
@@ -124,10 +159,12 @@
   }
 
   const SPRITE_ART = Object.fromEntries(
-    SPRITE_KEYS.map(key => [key, loadArt(`/assets/sprites/${key}.png?v=5.1.0`)])
+    SPRITE_KEYS.map(key => [key, loadArt(`/assets/sprites/${key}.png?v=${ASSET_VERSION}`)])
   );
+  const SUPPORTER_ART = loadArt(`/assets/sprites/supporters.png?v=${ASSET_VERSION}`);
+  const HERO_CELEBRATE_ART = loadArt(`/assets/sprites/hero-celebrate.png?v=${ASSET_VERSION}`);
   const STAGE_ART = Object.fromEntries(
-    STAGES.map(stage => [stage.art, loadArt(`/assets/stages/${stage.art}.png?v=5.1.0`)])
+    STAGES.map(stage => [stage.art, loadArt(`/assets/stages/${stage.art}.png?v=${ASSET_VERSION}`)])
   );
 
   const keys = new Set();
@@ -150,6 +187,7 @@
   let stageClearAnnounced = false;
   let transition = null;
   let gameOverDelay = 0;
+  let finalCelebration = 0;
   let demoClock = 0;
   let lastFrame = performance.now();
   let toastTimer = 0;
@@ -196,6 +234,7 @@
     stageBanner = 2.35;
     stageClear = false;
     stageClearAnnounced = false;
+    finalCelebration = 0;
     showToast(`${STAGES[index].name} · ${STAGES[index].zone}`, 1.7);
   }
 
@@ -210,6 +249,7 @@
     flash = 0;
     transition = null;
     gameOverDelay = 0;
+    finalCelebration = 0;
     ui.fade.style.opacity = '0';
     loadStage(0);
   }
@@ -305,7 +345,7 @@
     const best = Number(localStorage.getItem('missaoFozBest') || 0);
     if (finalScore > best) localStorage.setItem('missaoFozBest', String(finalScore));
     ui.resultEyebrow.textContent = victory ? 'MISSÃO CUMPRIDA' : 'FIM DE JOGO';
-    ui.resultTitle.textContent = victory ? 'FOZ LIBERADA!' : 'TENTE DE NOVO';
+    ui.resultTitle.textContent = victory ? 'VITÓRIA 1444!' : 'TENTE DE NOVO';
     ui.resultStats.innerHTML = `
       <div><b>${knockouts}/10</b><span>LUTAS VENCIDAS</span></div>
       <div><b>${formatTime(elapsed)}</b><span>TEMPO</span></div>
@@ -315,8 +355,20 @@
     victory ? sfxVictory() : sfxLose();
   }
 
+  function startFinalCelebration() {
+    if (finalCelebration > 0) return;
+    finalCelebration = .001;
+    player.x = W / 2;
+    player.y = 220;
+    player.facing = 1;
+    setState(player, 'celebrate');
+    resetInput();
+    showToast('1444 • MISSÃO CUMPRIDA!', 2.1);
+    sfxClear();
+  }
+
   function beginStageExit() {
-    if (transition) return;
+    if (transition || finalCelebration > 0 || stageIndex === STAGES.length - 1) return;
     transition = { phase: 'out', t: 0, next: stageIndex + 1 };
     resetInput();
     sfxDoor();
@@ -361,7 +413,7 @@
   }
 
   function attackPlayer(kind) {
-    if (mode !== 'playing' || transition || !player || player.state === 'hurt' || player.state === 'ko') return;
+    if (mode !== 'playing' || transition || finalCelebration > 0 || !player || player.state === 'hurt' || player.state === 'ko') return;
     if (player.state === 'punch' || player.state === 'kick') return;
     setState(player, kind);
     kind === 'punch' ? sfxWhoosh(150) : sfxWhoosh(95);
@@ -480,7 +532,7 @@
     }
     if (!attacking) setState(player, movementStrength > .08 ? 'walk' : 'idle');
 
-    if (stageClear && player.x > 453) beginStageExit();
+    if (stageClear && stageIndex < STAGES.length - 1 && player.x > 453) beginStageExit();
   }
 
   function updateEnemy(enemy, dt) {
@@ -605,6 +657,13 @@
       if (gameOverDelay <= 0) finishGame(false);
       return;
     }
+    if (finalCelebration > 0) {
+      finalCelebration += dt;
+      player.stateTime += dt;
+      updateEffects(dt);
+      if (finalCelebration >= FINAL_CELEBRATION_DURATION) finishGame(true);
+      return;
+    }
     updatePlayer(dt);
     enemies.forEach(enemy => updateEnemy(enemy, dt));
     separateFighters();
@@ -614,8 +673,12 @@
       stageClear = true;
       if (!stageClearAnnounced) {
         stageClearAnnounced = true;
-        showToast(stageIndex === STAGES.length - 1 ? 'SIGA ATÉ O FINAL!' : 'CAMINHO LIVRE →', 1.7);
-        sfxClear();
+        if (stageIndex === STAGES.length - 1) {
+          startFinalCelebration();
+        } else {
+          showToast('CAMINHO LIVRE →', 1.7);
+          sfxClear();
+        }
       }
     }
   }
@@ -891,7 +954,7 @@
     const art = STAGE_ART[stage.art];
     if (art?.ready) {
       ctx.drawImage(art.image, 0, 0, W, H);
-      const plateY = stage.kind === 'avenidaBrasil' ? 126 : stage.kind === 'almirante' ? 121 : 118;
+      const plateY = stage.kind === 'avenidaBrasil' ? 94 : stage.kind === 'almirante' ? 121 : 118;
       drawStreetPlate(stage, 392, plateY);
       return;
     }
@@ -1173,6 +1236,155 @@
     return true;
   }
 
+  function supporterFrame(index) {
+    const supporter = index % 8;
+    const pairStart = Math.floor(supporter / 2) * 4 + (supporter % 2) * 2;
+    const pose = Math.floor(demoClock * 4.5 + index * .7) % 2;
+    return pairStart + pose;
+  }
+
+  function drawCandidateBadge(x, y) {
+    outlinedBox(x, y, 10, 10, '#e99a70', '#08090c');
+    box(x + 1, y + 1, 8, 3, '#171719');
+    box(x + 1, y + 4, 8, 2, '#e99a70');
+    box(x + 1, y + 4, 3, 2, '#08090c');
+    box(x + 6, y + 4, 3, 2, '#08090c');
+    box(x + 4, y + 5, 2, 1, '#08090c');
+    box(x + 3, y + 8, 5, 1, '#30201b');
+  }
+
+  function drawCampaignProp(slot, index, bob) {
+    if (slot.prop === 'none') return;
+    const size = 58 * slot.scale;
+    const poleX = Math.round(slot.x + slot.facing * size * .2);
+    const poleTop = Math.round(slot.y + bob - size - 22 - (Math.floor(demoClock * 6 + index) % 2));
+    box(poleX, poleTop + 6, 2, Math.round(size + 15), '#6e4b2c');
+    box(poleX + 1, poleTop + 6, 1, Math.round(size + 15), '#b07b3f');
+
+    if (slot.prop === 'sign') {
+      const signX = poleX - 15;
+      const light = index % 2 === 0;
+      outlinedBox(signX, poleTop, 32, 17, light ? '#ffd800' : '#08090c', light ? '#08090c' : '#ffd800');
+      text('1444', signX + 16, poleTop + 12, 8, light ? '#08090c' : '#ffd800', 'center');
+      return;
+    }
+
+    const wave = Math.floor(demoClock * 7 + index) % 3;
+    const flagX = slot.facing > 0 ? poleX + 2 : poleX - 29;
+    outlinedBox(flagX, poleTop, 29, 17, '#ffd800', '#08090c');
+    box(flagX + 1, poleTop + 1, 5 + wave, 15, '#08090c');
+    drawCandidateBadge(flagX + 3, poleTop + 3);
+    text('1444', flagX + 21, poleTop + 12, 5, '#08090c', 'center');
+  }
+
+  function drawFallbackSupporter(slot, index, bob) {
+    const x = Math.round(slot.x);
+    const y = Math.round(slot.y + bob);
+    const color = index % 2 ? '#ffd800' : '#111318';
+    outlinedBox(x - 5, y - 27, 11, 15, color);
+    outlinedBox(x - 4, y - 38, 9, 9, '#b97750');
+    outlinedBox(x - 7, y - 12, 5, 12, '#202329');
+    outlinedBox(x + 2, y - 12, 5, 12, '#202329');
+    box(x - 10, y - 31 - index % 3, 5, 3, '#b97750');
+    box(x + 6, y - 34 + index % 3, 5, 3, '#b97750');
+  }
+
+  function drawSupporter(slot, index, allowShout = true) {
+    const bob = Math.round(Math.sin(demoClock * 5.2 + index * 1.7) * 2);
+    drawCampaignProp(slot, index, bob);
+    if (SUPPORTER_ART.ready) {
+      const frame = supporterFrame(index);
+      const col = frame % 4;
+      const row = Math.floor(frame / 4);
+      const size = 58 * slot.scale;
+      const sourceSize = SPRITE_CELL - SPRITE_GUTTER * 2;
+      ctx.save();
+      ctx.translate(Math.round(slot.x), Math.round(slot.y + bob));
+      ctx.scale(slot.facing, 1);
+      ctx.drawImage(
+        SUPPORTER_ART.image,
+        col * SPRITE_CELL + SPRITE_GUTTER,
+        row * SPRITE_CELL + SPRITE_GUTTER,
+        sourceSize,
+        sourceSize,
+        -size / 2,
+        -size,
+        size,
+        size
+      );
+      ctx.restore();
+    } else {
+      drawFallbackSupporter(slot, index, bob);
+    }
+
+    const crowdCount = CROWD_COUNTS[stageIndex] || CROWD_COUNTS[0];
+    const shouter = Math.floor(demoClock * 1.25) % crowdCount;
+    if (allowShout && index === shouter && demoClock % .8 < .38) {
+      const shout = index % 3 === 0 ? '1444!' : index % 3 === 1 ? 'VAI!' : 'ÊÊÊ!';
+      const bubbleY = Math.round(slot.y + bob - 73 * slot.scale);
+      outlinedBox(slot.x - 16, bubbleY - 8, 32, 11, '#ffffff', '#08090c');
+      text(shout, slot.x, bubbleY, 6, '#08090c', 'center');
+    }
+  }
+
+  function drawCampaignCrowd() {
+    const count = CROWD_COUNTS[stageIndex] || CROWD_COUNTS[0];
+    CROWD_SLOTS.slice(0, count)
+      .map((slot, index) => ({ slot, index }))
+      .sort((a, b) => a.slot.y - b.slot.y)
+      .forEach(({ slot, index }) => drawSupporter(slot, index));
+  }
+
+  function drawCelebrationRing(front) {
+    CELEBRATION_RING
+      .map((slot, index) => ({ slot, index }))
+      .filter(({ slot }) => (slot.y > player.y) === front)
+      .sort((a, b) => a.slot.y - b.slot.y)
+      .forEach(({ slot, index }) => drawSupporter(slot, index, false));
+  }
+
+  function drawCelebratingHero() {
+    drawShadow(player, 32);
+    if (!HERO_CELEBRATE_ART.ready) {
+      drawActor(player, true);
+      return;
+    }
+    const frame = Math.floor(finalCelebration * 7) % 4;
+    const sourceSize = SPRITE_CELL - SPRITE_GUTTER * 2;
+    const size = 78;
+    ctx.save();
+    ctx.translate(Math.round(player.x), Math.round(player.y));
+    ctx.drawImage(
+      HERO_CELEBRATE_ART.image,
+      frame * SPRITE_CELL + SPRITE_GUTTER,
+      SPRITE_GUTTER,
+      sourceSize,
+      sourceSize,
+      -size / 2,
+      -size * .97,
+      size,
+      size
+    );
+    ctx.restore();
+  }
+
+  function drawCelebrationConfetti() {
+    const colors = ['#ffd800', '#ffffff', '#f3a712', '#111318'];
+    const tick = Math.floor(finalCelebration * 34);
+    for (let i = 0; i < 44; i++) {
+      const x = (i * 83 + tick * (2 + i % 3)) % W;
+      const y = (i * 41 + tick * (1 + i % 2)) % 242;
+      box(x, y, i % 2 ? 2 : 3, i % 3 ? 4 : 2, colors[i % colors.length]);
+    }
+  }
+
+  function drawCelebrationBanner() {
+    outlinedBox(83, 8, 314, 39, '#08090c', '#ffd800');
+    box(86, 11, 73, 33, '#ffd800');
+    text('1444', 123, 36, 21, '#08090c', 'center');
+    text('MISSÃO CUMPRIDA!', 276, 33, 15, '#ffffff', 'center');
+  }
+
   function drawActor(actor, isPlayer = false) {
     const usedSprite = drawSpriteActor(actor, isPlayer);
     if (!usedSprite) {
@@ -1205,7 +1417,7 @@
   }
 
   function drawExit() {
-    if (!stageClear) return;
+    if (!stageClear || finalCelebration > 0) return;
     const pulse = Math.floor(demoClock * 5) % 2;
     const x = 456 + pulse * 2;
     box(x, 179, 17, 42, 'rgba(255,216,0,.2)');
@@ -1254,6 +1466,16 @@
     ctx.save();
     ctx.translate(sx, sy);
     drawStage(STAGES[stageIndex]);
+    if (finalCelebration > 0) {
+      drawCelebrationRing(false);
+      drawCelebratingHero();
+      drawCelebrationRing(true);
+      drawCelebrationConfetti();
+      ctx.restore();
+      drawCelebrationBanner();
+      return;
+    }
+    drawCampaignCrowd();
     drawExit();
     const actors = [...enemies.map(enemy => ({ actor: enemy, player: false })), { actor: player, player: true }]
       .sort((a, b) => a.actor.y - b.actor.y);
@@ -1272,8 +1494,8 @@
   function drawAttract() {
     drawStage(STAGES[0], demoClock);
     const cycle = demoClock % 2.4;
-    const hero = { x: 384, y: 218, facing: 1, state: cycle < .5 ? 'walk' : cycle < 1.25 ? 'punch' : 'idle', stateTime: cycle, flash: 0 };
-    const rival = { x: 431, y: 218, facing: -1, state: cycle > .5 && cycle < 1.1 ? 'hurt' : 'chase', stateTime: cycle, flash: cycle > .5 && cycle < .64 ? .1 : 0, def: FIGHTER_DEFS[0], hp: 48, maxHp: 48, defeated: false };
+    const hero = { x: 384, y: 218, facing: 1, state: cycle < .5 ? 'walk' : cycle < 1.25 ? 'punch' : 'idle', stateTime: cycle, walkCycle: cycle * 8, flash: 0 };
+    const rival = { x: 431, y: 218, facing: -1, state: cycle > .5 && cycle < 1.1 ? 'hurt' : 'chase', stateTime: cycle, walkCycle: cycle * 8, moving: true, flash: cycle > .5 && cycle < .64 ? .1 : 0, def: FIGHTER_DEFS[0], hp: 48, maxHp: 48, defeated: false };
     drawActor(rival, false);
     drawActor(hero, true);
     box(331, 239, 139, 18, 'rgba(5,7,12,.8)');

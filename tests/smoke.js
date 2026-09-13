@@ -12,13 +12,17 @@ let queuedFrame = null;
 let drawCalls = 0;
 let spriteDrawCalls = 0;
 const heroWalkFrames = new Set();
+const supporterFrames = new Set();
 const spriteSourceRects = [];
+const loadedImages = new Set();
+const drawnTexts = [];
 const noop = () => {};
 
 const canvasContext = new Proxy({ imageSmoothingEnabled: false }, {
   get(target, property) {
     if (property in target) return target[property];
-    if (property === 'fillRect' || property === 'fillText') return () => { drawCalls += 1; };
+    if (property === 'fillRect') return () => { drawCalls += 1; };
+    if (property === 'fillText') return value => { drawCalls += 1; drawnTexts.push(String(value)); };
     if (property === 'drawImage') return (...args) => {
       drawCalls += 1;
       if (args.length !== 9) return;
@@ -30,6 +34,11 @@ const canvasContext = new Proxy({ imageSmoothingEnabled: false }, {
         const row = Math.floor(sourceY / 128);
         const frame = row * 4 + col;
         if (frame >= 2 && frame <= 5) heroWalkFrames.add(frame);
+      }
+      if (image.src?.includes('/supporters.png')) {
+        const col = Math.floor(sourceX / 128);
+        const row = Math.floor(sourceY / 128);
+        supporterFrames.add(row * 4 + col);
       }
     };
     if (property === 'measureText') return value => ({ width: String(value).length * 6 });
@@ -113,7 +122,7 @@ global.localStorage = { getItem: () => null, setItem: noop };
 global.requestAnimationFrame = callback => { queuedFrame = callback; return 1; };
 global.Image = class {
   constructor() { this.onload = null; this.onerror = null; this.naturalWidth = 512; this.naturalHeight = 512; }
-  set src(value) { this._src = value; if (this.onload) this.onload(); }
+  set src(value) { this._src = value; loadedImages.add(value); if (this.onload) this.onload(); }
   get src() { return this._src; }
 };
 
@@ -169,6 +178,10 @@ async function run() {
   assert(document.body.classList.contains('pseudo-fullscreen'), 'o fallback de tela cheia do iPhone deve ser ativado');
   assert(spriteDrawCalls > 100, 'as folhas raster devem ser desenhadas no Canvas');
   assert.strictEqual(heroWalkFrames.size, 4, 'a caminhada do protagonista deve percorrer os quatro quadros alternados');
+  assert(supporterFrames.size >= 8, 'a torcida inicial deve alternar os dois quadros de quatro apoiadores diferentes');
+  assert(drawnTexts.includes('1444'), 'placas e bandeiras da torcida devem exibir o número 1444');
+  assert([...loadedImages].some(src => src.includes('/supporters.png?v=5.2.0')), 'a folha da torcida 5.2 deve ser carregada');
+  assert([...loadedImages].some(src => src.includes('/hero-celebrate.png?v=5.2.0')), 'a animação final 5.2 deve ser carregada');
   assert(spriteSourceRects.every(rect => (
     rect.sourceX % 128 === 2 && rect.sourceY % 128 === 2 &&
     rect.sourceWidth === 124 && rect.sourceHeight === 124 &&
