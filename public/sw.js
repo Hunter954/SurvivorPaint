@@ -1,11 +1,11 @@
 'use strict';
 
-const CACHE_NAME = 'missao-foz-v4.1.0';
+const CACHE_NAME = 'missao-foz-v4.1.1';
 const APP_SHELL = [
   '/',
   '/index.html',
-  '/style.css',
-  '/game.js',
+  '/style.css?v=4.1.1',
+  '/game.js?v=4.1.1',
   '/manifest.webmanifest',
   '/assets/icon.svg',
   '/assets/icon-180.png'

@@ -101,7 +101,7 @@ curl http://localhost:3000/api/health
 O healthcheck deve responder:
 
 ```json
-{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"4.1.0"}
+{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"4.1.1"}
 ```
 
 ## Railway

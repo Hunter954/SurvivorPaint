@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.1.1 — Atualização imediata
+
+- CSS e JavaScript usam URLs versionadas para impedir que celulares mantenham arquivos antigos em cache após o deploy.
+
 ## 4.1.0 — iPhone e Foz real
 
 - PWA instalável com tela cheia, orientação horizontal e ícone próprio.
