@@ -9,7 +9,7 @@
 
 html, body {
   width: 100%;
-  height: 100%;
+  height: var(--app-height, 100dvh);
   margin: 0;
   overflow: hidden;
   background: #03050a;
@@ -24,8 +24,8 @@ button, .joystick { -webkit-tap-highlight-color: transparent; }
 
 .game-shell {
   position: relative;
-  width: 100vw;
-  height: 100vh;
+  width: var(--app-width, 100vw);
+  height: var(--app-height, 100dvh);
   display: grid;
   place-items: center;
   overflow: hidden;
@@ -35,10 +35,10 @@ button, .joystick { -webkit-tap-highlight-color: transparent; }
 
 #game {
   display: block;
-  width: min(100vw, 177.7778vh);
-  height: min(56.25vw, 100vh);
-  max-width: 100vw;
-  max-height: 100vh;
+  width: min(var(--app-width, 100vw), calc(var(--app-height, 100dvh) * 1.777778));
+  height: min(calc(var(--app-width, 100vw) * .5625), var(--app-height, 100dvh));
+  max-width: var(--app-width, 100vw);
+  max-height: var(--app-height, 100dvh);
   background: #111827;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
@@ -121,6 +121,16 @@ h1 strong {
 .pixel-btn.secondary { background: var(--blue); }
 .pixel-btn.ghost { color: #fff; background: #2b3240; }
 .play-btn { font-size: clamp(12px,1.55vw,18px); }
+.ios-only { display: none; }
+body.ios-device:not(.standalone-mode) .ios-only { display: inline-block; }
+.ios-help-btn {
+  min-width: 0;
+  margin-left: 7px;
+  padding: 10px 12px 9px;
+  color: #fff;
+  background: #263348;
+  font-size: clamp(8px,1vw,11px);
+}
 .menu-controls { display: grid; gap: 4px; margin-top: 14px; color: #aeb6c5; font-size: clamp(8px,.92vw,11px); }
 .menu-controls b { color: #fff; }
 .fiction-note { margin: 10px 0 0; color: #737d8f; font-size: 8px; line-height: 1.3; }
@@ -135,6 +145,15 @@ h1 strong {
 }
 .dialog-card h2 { margin: 3px 0 18px; font-size: clamp(22px,4vw,42px); line-height: .95; }
 .dialog-card .pixel-btn { display: block; width: 100%; margin-top: 9px; }
+.ios-install-overlay { z-index: 75; background: rgba(3,5,10,.94); }
+.install-card { max-width: 430px; text-align: left; }
+.install-card h2 { text-align: left; }
+.install-steps { display: grid; gap: 8px; margin: 0 0 12px; padding: 0; list-style: none; }
+.install-steps li { display: grid; grid-template-columns: 28px 1fr; gap: 9px; align-items: center; padding: 8px; border: 2px solid #0b0e15; background: #252d3c; }
+.install-steps li > b { display: grid; width: 26px; height: 26px; place-items: center; color: #080a0f; background: var(--yellow); }
+.install-steps span { color: #dce1e9; font-size: 11px; line-height: 1.3; }
+.install-steps strong { color: #fff; }
+.install-note { color: #9aa5b5; font-size: 9px; line-height: 1.4; }
 .result-stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin: 12px 0 16px; }
 .result-stats div { padding: 9px 4px; border: 2px solid #0a0d13; background: #252d3c; }
 .result-stats b { display: block; color: var(--yellow); font-size: 17px; }
@@ -244,6 +263,12 @@ h1 strong {
 @keyframes turn { 0%,25% { transform: rotate(0); } 65%,100% { transform: rotate(90deg); } }
 @media (pointer: coarse) { .playing .touch-controls { display: block; } }
 @media (orientation: portrait) and (pointer: coarse) { .playing .rotate-overlay { display: grid; } }
+body.ios-device.pseudo-fullscreen:not(.standalone-mode) {
+  min-height: calc(var(--app-height, 100dvh) + 2px);
+  overflow-y: auto;
+}
+body.ios-device.pseudo-fullscreen .game-shell { position: fixed; inset: 0; }
+body.standalone-mode .game-shell { position: fixed; inset: 0; }
 @media (max-height: 430px) {
   .menu-card { padding: 12px 18px; }
   .lead { margin: 8px 0 10px; }
@@ -252,5 +277,10 @@ h1 strong {
   .dialog-card { padding: 15px 20px; }
   .dialog-card h2 { margin-bottom: 10px; }
   .pixel-btn { padding: 9px 13px 8px; }
+  .ios-help-btn { padding: 8px 9px 7px; }
+  .install-card { max-height: 94vh; overflow: auto; }
+  .install-card h2 { margin-bottom: 8px; }
+  .install-steps { gap: 4px; }
+  .install-steps li { padding: 5px 7px; }
 }
 @media (prefers-reduced-motion: reduce) { *,*::before,*::after { animation-duration: .01ms !important; transition-duration: .01ms !important; } }

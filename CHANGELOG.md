@@ -1,5 +1,13 @@
 # Changelog
 
+## 4.1.0 — iPhone e Foz real
+
+- PWA instalável com tela cheia, orientação horizontal e ícone próprio.
+- Fallback específico para o visualViewport e safe areas do Safari no iPhone.
+- Instruções dentro do jogo para abrir pela Tela de Início no iOS.
+- Fases redesenhadas como Avenida Brasil, Rua Almirante Barroso, Praça da Bíblia, Avenida Jorge Schimmelpfeng e Praça da Paz.
+- Novos monumentos, igreja, paisagismo, placas de rua e arquitetura urbana em pixel art.
+
 ## 4.0.0 — Missão Foz
 
 - Projeto convertido de survivor multiplayer para beat'em up single-player.

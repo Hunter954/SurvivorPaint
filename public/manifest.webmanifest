@@ -1,0 +1,28 @@
+{
+  "id": "/",
+  "name": "Darlon Dutra: Missão Foz",
+  "short_name": "Missão Foz",
+  "description": "Beat'em up em pixel art pelas ruas de Foz do Iguaçu.",
+  "lang": "pt-BR",
+  "start_url": "/?modo=app",
+  "scope": "/",
+  "display": "fullscreen",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "landscape",
+  "background_color": "#05070c",
+  "theme_color": "#090b12",
+  "icons": [
+    {
+      "src": "/assets/icon-180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/assets/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

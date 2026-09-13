@@ -2,10 +2,18 @@
 <html lang="pt-BR">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover,interactive-widget=resizes-content">
   <meta name="theme-color" content="#090b12">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Missão Foz">
+  <meta name="format-detection" content="telephone=no">
   <meta name="description" content="Darlon Dutra: Missão Foz — jogo de luta lateral em pixel art.">
   <title>Darlon Dutra: Missão Foz</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -18,11 +26,26 @@
         <h1><span>DARLON DUTRA</span><strong>MISSÃO FOZ</strong></h1>
         <p class="lead">Atravesse os quarteirões, encare lutadores fictícios e libere o caminho pela cidade.</p>
         <button id="playBtn" class="pixel-btn play-btn" type="button">JOGAR AGORA</button>
+        <button id="iosHelpBtn" class="pixel-btn ios-only ios-help-btn" type="button">TELA CHEIA NO IPHONE</button>
         <div class="menu-controls">
           <span><b>CELULAR</b> joystick + SOCO + CHUTE</span>
           <span><b>PC</b> WASD/setas + J + K</span>
         </div>
         <p class="fiction-note">Obra fictícia e satírica. Personagens adversários são adultos fictícios em combate.</p>
+      </div>
+    </section>
+
+    <section id="iosInstallOverlay" class="overlay compact-overlay ios-install-overlay">
+      <div class="dialog-card install-card">
+        <p class="eyebrow">FULLSCREEN NO IPHONE</p>
+        <h2>ABRA COMO APP</h2>
+        <ol class="install-steps">
+          <li><b>1</b><span>Toque em <strong>Compartilhar</strong> no Safari.</span></li>
+          <li><b>2</b><span>Escolha <strong>Adicionar à Tela de Início</strong>.</span></li>
+          <li><b>3</b><span>Abra o ícone <strong>Missão Foz</strong>.</span></li>
+        </ol>
+        <p class="install-note">Assim o jogo abre sem as barras do Safari e preparado para a horizontal.</p>
+        <button id="iosInstallCloseBtn" class="pixel-btn" type="button">ENTENDI</button>
       </div>
     </section>
 

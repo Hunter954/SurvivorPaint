@@ -13,6 +13,7 @@ const MIME_TYPES = {
   '.css': 'text/css; charset=utf-8',
   '.js': 'text/javascript; charset=utf-8',
   '.json': 'application/json; charset=utf-8',
+  '.webmanifest': 'application/manifest+json; charset=utf-8',
   '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
@@ -53,7 +54,7 @@ const server = http.createServer((req, res) => {
   try { pathname = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).pathname; } catch {}
 
   if (pathname === '/api/health') {
-    const payload = JSON.stringify({ ok: true, game: 'Darlon Dutra: Missão Foz', version: '4.0.0' });
+    const payload = JSON.stringify({ ok: true, game: 'Darlon Dutra: Missão Foz', version: '4.1.0' });
     if (method === 'HEAD') {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(payload) });
       return res.end();
@@ -88,7 +89,8 @@ const server = http.createServer((req, res) => {
       }
 
       const extension = path.extname(target).toLowerCase();
-      const cache = extension === '.html' ? 'no-cache' : 'public, max-age=3600';
+      const noCache = extension === '.html' || extension === '.webmanifest' || path.basename(target) === 'sw.js';
+      const cache = noCache ? 'no-cache' : 'public, max-age=3600';
       res.writeHead(200, {
         'Content-Type': MIME_TYPES[extension] || 'application/octet-stream',
         'Content-Length': data.length,

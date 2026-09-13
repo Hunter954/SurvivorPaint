@@ -70,15 +70,28 @@ function addWindowListener(type, listener) {
   windowListeners.set(type, bucket);
 }
 
-global.window = { addEventListener: addWindowListener, AudioContext: null, webkitAudioContext: null };
+global.window = {
+  addEventListener: addWindowListener,
+  AudioContext: null,
+  webkitAudioContext: null,
+  innerWidth: 844,
+  innerHeight: 390,
+  scrollTo: noop,
+  visualViewport: { width: 844, height: 390, addEventListener: noop }
+};
 global.document = {
   getElementById: makeElement,
   addEventListener: (type, listener) => addWindowListener(`document:${type}`, listener),
-  documentElement: {},
+  body: makeElement('body'),
+  documentElement: { style: { setProperty: noop } },
   hidden: false,
   fullscreenElement: null
 };
-global.matchMedia = () => ({ matches: false });
+Object.defineProperty(global, 'navigator', {
+  configurable: true,
+  value: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)', platform: 'iPhone', maxTouchPoints: 5, standalone: false }
+});
+global.matchMedia = query => ({ matches: query.includes('pointer: coarse') });
 global.screen = { orientation: {} };
 global.localStorage = { getItem: () => null, setItem: noop };
 global.requestAnimationFrame = callback => { queuedFrame = callback; return 1; };
@@ -131,6 +144,8 @@ async function run() {
 
   assert(makeElement('gameShell').classList.contains('playing'), 'o jogo deve permanecer no modo de execução');
   assert(!makeElement('menuOverlay').classList.contains('visible'), 'o menu deve estar oculto durante a partida');
+  assert(document.body.classList.contains('ios-device'), 'o cliente deve detectar o iPhone');
+  assert(document.body.classList.contains('pseudo-fullscreen'), 'o fallback de tela cheia do iPhone deve ser ativado');
   assert(drawCalls > 5000, 'o Canvas deve desenhar cenário, HUD e sprites');
   console.log(`Smoke test OK: ${drawCalls} operações de desenho em 315 frames.`);
 }

@@ -25,6 +25,9 @@
     resultStats: $('resultStats'),
     again: $('againBtn'),
     menuResult: $('menuResultBtn'),
+    iosHelp: $('iosHelpBtn'),
+    iosInstall: $('iosInstallOverlay'),
+    iosInstallClose: $('iosInstallCloseBtn'),
     joystick: $('joystick'),
     stick: $('stick'),
     punch: $('punchBtn'),
@@ -32,6 +35,25 @@
     toast: $('toast'),
     fade: $('fadeLayer')
   };
+
+  const nav = typeof navigator === 'undefined' ? {} : navigator;
+  const IS_IOS = /iPad|iPhone|iPod/i.test(nav.userAgent || '') || (nav.platform === 'MacIntel' && Number(nav.maxTouchPoints) > 1);
+  const IS_STANDALONE = Boolean(nav.standalone) || Boolean(matchMedia('(display-mode: standalone)').matches);
+  document.body?.classList.add(IS_IOS ? 'ios-device' : 'standard-device');
+  if (IS_STANDALONE) document.body?.classList.add('standalone-mode');
+
+  function updateViewportSize() {
+    const viewport = window.visualViewport;
+    const height = Math.round(viewport?.height || window.innerHeight || 270);
+    const width = Math.round(viewport?.width || window.innerWidth || 480);
+    document.documentElement.style?.setProperty('--app-height', `${height}px`);
+    document.documentElement.style?.setProperty('--app-width', `${width}px`);
+  }
+  updateViewportSize();
+  window.visualViewport?.addEventListener('resize', updateViewportSize);
+  window.visualViewport?.addEventListener('scroll', updateViewportSize);
+  window.addEventListener('resize', updateViewportSize);
+  window.addEventListener('orientationchange', () => setTimeout(updateViewportSize, 120));
 
   const clamp = (v, min, max) => Math.max(min, Math.min(max, v));
   const lerp = (a, b, t) => a + (b - a) * t;
@@ -42,51 +64,31 @@
 
   const STAGES = [
     {
-      name: 'AVENIDA BRASIL', zone: 'CENTRO DE FOZ', sky: ['#65c6e8', '#9bdcf0', '#d9f1f4'],
+      name: 'AVENIDA BRASIL', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'avenidaBrasil', plate: ['AV. BRASIL', 'CENTRO'], sky: ['#56bfe5', '#97d9eb', '#d9eff0'],
       stores: [
-        { x: 0, w: 126, color: '#e9efe9', trim: '#27a259', sign: 'FARMÁCIA' },
-        { x: 126, w: 128, color: '#f2d6a7', trim: '#d18435', sign: 'CAFÉ CENTRAL' },
-        { x: 254, w: 122, color: '#d8e6ef', trim: '#2a72a8', sign: 'BANCO' },
-        { x: 376, w: 104, color: '#f2c5aa', trim: '#cc5236', sign: 'SAPATARIA' }
+        { x: 0, w: 120, color: '#e5ebe5', trim: '#219b54', sign: 'FARMÁCIA', awning: '#f5f5ee' },
+        { x: 120, w: 126, color: '#edd2a8', trim: '#bf712b', sign: 'CAFÉ BRASIL', awning: '#7d301f' },
+        { x: 246, w: 118, color: '#d5e2eb', trim: '#246ca0', sign: 'BANCO', awning: '#e9edf1' },
+        { x: 364, w: 116, color: '#efc1a4', trim: '#c64632', sign: 'LOJAS', awning: '#fff0d9' }
       ]
     },
     {
-      name: 'RUA ALMIRANTE', zone: 'QUARTEIRÃO 02', sky: ['#f4a46c', '#f7c58d', '#fce2b5'],
+      name: 'RUA ALMIRANTE BARROSO', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'almirante', plate: ['R. ALMIRANTE', 'BARROSO'], sky: ['#f0a164', '#f7c78d', '#fbe1b4'],
       stores: [
-        { x: 0, w: 142, color: '#dfd1f0', trim: '#7445a5', sign: 'GALERIA' },
-        { x: 142, w: 118, color: '#f1d7b8', trim: '#ad5b35', sign: 'LANCHES' },
-        { x: 260, w: 126, color: '#c9e5d1', trim: '#26764a', sign: 'MERCADO' },
-        { x: 386, w: 94, color: '#d9e3f4', trim: '#4666a9', sign: 'CELULARES' }
+        { x: 0, w: 132, color: '#d9d0e8', trim: '#684496', sign: 'GALERIA', awning: '#ece4f5' },
+        { x: 132, w: 122, color: '#e8d3ba', trim: '#9f5736', sign: 'HOTEL FOZ', awning: '#5c3026' },
+        { x: 254, w: 116, color: '#c7dfcf', trim: '#236d45', sign: 'LANCHES', awning: '#f0e2b6' },
+        { x: 370, w: 110, color: '#d5dfef', trim: '#3c5d9b', sign: 'LOTÉRICA', awning: '#e3e9f5' }
       ]
     },
     {
-      name: 'PRAÇA DA CIDADE', zone: 'QUARTEIRÃO 03', sky: ['#68b6d7', '#a7d6e6', '#e0eff1'],
-      plaza: true,
-      stores: [
-        { x: 0, w: 116, color: '#ecd6bd', trim: '#9f6238', sign: 'PADARIA' },
-        { x: 116, w: 128, color: '#cadde7', trim: '#366b89', sign: 'LIVRARIA' },
-        { x: 244, w: 114, color: '#ead1d5', trim: '#a54b58', sign: 'MODAS' },
-        { x: 358, w: 122, color: '#dce5bd', trim: '#6d842c', sign: 'SORVETES' }
-      ]
+      name: 'PRAÇA DA BÍBLIA', zone: 'FOZ DO IGUAÇU • PARANÁ', kind: 'bibleSquare', plate: ['PRAÇA DA', 'BÍBLIA'], sky: ['#5eadd0', '#9bd3e3', '#e2eef0'], plaza: true, stores: []
     },
     {
-      name: 'VILA PORTES', zone: 'QUARTEIRÃO 04', sky: ['#425f82', '#6f8caa', '#bdc8cf'],
-      stores: [
-        { x: 0, w: 128, color: '#c5ccd2', trim: '#4c5761', sign: 'OFICINA' },
-        { x: 128, w: 130, color: '#d7c5b8', trim: '#865743', sign: 'DEPÓSITO' },
-        { x: 258, w: 108, color: '#b9d5d5', trim: '#327278', sign: 'HOTEL' },
-        { x: 366, w: 114, color: '#ded0a8', trim: '#997722', sign: 'BAZAR' }
-      ]
+      name: 'AV. JORGE SCHIMMELPFENG', zone: 'CATEDRAL SÃO JOÃO BATISTA', kind: 'cathedral', plate: ['AV. JORGE', 'SCHIMMELPFENG'], sky: ['#4b7695', '#88abc0', '#d2d8d5'], stores: []
     },
     {
-      name: 'PRAÇA DA PAZ', zone: 'ÚLTIMO QUARTEIRÃO', sky: ['#242b5a', '#584a83', '#e28a7c'],
-      final: true,
-      stores: [
-        { x: 0, w: 120, color: '#8e8194', trim: '#4c4054', sign: 'CINEMA' },
-        { x: 120, w: 126, color: '#a78c76', trim: '#614b3a', sign: 'RESTAURANTE' },
-        { x: 246, w: 118, color: '#7e99a7', trim: '#3c5967', sign: 'TURISMO' },
-        { x: 364, w: 116, color: '#9a8f73', trim: '#574d35', sign: 'ARTESANATO' }
-      ]
+      name: 'PRAÇA DA PAZ', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'peaceSquare', plate: ['PRAÇA', 'DA PAZ'], sky: ['#283463', '#685687', '#e68d72'], plaza: true, final: true, stores: []
     }
   ];
 
@@ -195,20 +197,43 @@
     ui.menu.classList.remove('visible');
     ui.pause.classList.remove('visible');
     ui.result.classList.remove('visible');
+    ui.iosInstall.classList.remove('visible');
   }
 
   async function requestLandscape() {
-    if (!matchMedia('(pointer: coarse)').matches) return;
+    if (!matchMedia('(pointer: coarse)').matches) return false;
     const root = document.documentElement;
+    document.body?.classList.add('pseudo-fullscreen');
+    updateViewportSize();
+
+    // O Safari do iPhone não expõe a Fullscreen API para páginas comuns.
+    // Em modo instalado, as metas/manifest removem as barras; no Safari,
+    // ocupamos todo o visualViewport e tentamos recolher a barra ao rolar 1px.
+    if (IS_IOS) {
+      const tuckBrowserChrome = () => {
+        window.scrollTo?.(0, 1);
+        updateViewportSize();
+      };
+      setTimeout(tuckBrowserChrome, 80);
+      setTimeout(tuckBrowserChrome, 420);
+      return IS_STANDALONE;
+    }
+
+    let enteredFullscreen = Boolean(document.fullscreenElement || document.webkitFullscreenElement);
     try {
-      if (!document.fullscreenElement) {
+      if (!enteredFullscreen) {
         const request = root.requestFullscreen || root.webkitRequestFullscreen;
-        if (request) await request.call(root, { navigationUI: 'hide' });
+        if (request) {
+          await request.call(root, { navigationUI: 'hide' });
+          enteredFullscreen = true;
+        }
       }
     } catch (_) { /* Alguns navegadores móveis não permitem fullscreen. */ }
     try {
-      if (screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
+      if (enteredFullscreen && screen.orientation && screen.orientation.lock) await screen.orientation.lock('landscape');
     } catch (_) { /* O aviso de rotação continua como fallback. */ }
+    updateViewportSize();
+    return enteredFullscreen;
   }
 
   async function startGame() {
@@ -218,6 +243,7 @@
     ui.shell.classList.add('playing');
     mode = 'playing';
     resetRun();
+    if (IS_IOS && !IS_STANDALONE) showToast('IPHONE: FULLSCREEN REAL PELO ÍCONE DA TELA DE INÍCIO', 3.8);
   }
 
   function backToMenu() {
@@ -619,6 +645,76 @@
     ctx.restore();
   }
 
+  function drawTree(x, baseY, scale = 1, dark = false) {
+    const trunk = dark ? '#523a2b' : '#68472f';
+    const leafA = dark ? '#194735' : '#216a43';
+    const leafB = dark ? '#236046' : '#2f8a50';
+    ctx.save(); ctx.translate(Math.round(x), Math.round(baseY)); ctx.scale(scale, scale);
+    box(-3, -35, 7, 35, trunk);
+    box(-2, -35, 3, 35, '#916342');
+    box(-18, -47, 36, 18, leafA);
+    box(-13, -55, 27, 11, leafB);
+    box(-23, -42, 14, 11, leafB);
+    box(10, -44, 14, 12, leafB);
+    box(-8, -59, 17, 8, leafA);
+    ctx.restore();
+  }
+
+  function drawLamp(x, baseY, double = false) {
+    box(x - 1, baseY - 49, 3, 49, '#303842');
+    box(x - 4, baseY - 52, 9, 4, '#1b232c');
+    box(x - 3, baseY - 51, 7, 3, '#ffe78a');
+    if (double) {
+      box(x - 14, baseY - 47, 14, 3, '#303842');
+      box(x + 2, baseY - 47, 14, 3, '#303842');
+      box(x - 17, baseY - 50, 8, 4, '#1b232c');
+      box(x + 11, baseY - 50, 8, 4, '#1b232c');
+      box(x - 16, baseY - 49, 6, 2, '#ffe78a');
+      box(x + 12, baseY - 49, 6, 2, '#ffe78a');
+    }
+  }
+
+  function drawStreetPlate(stage, x = 392, y = 127) {
+    const width = 80;
+    outlinedBox(x, y, width, 22, '#176387');
+    box(x + 3, y + 3, width - 6, 2, '#56b4ce');
+    text(stage.plate[0], x + width / 2, y + 10, stage.plate[0].length > 12 ? 5 : 6, '#ffffff', 'center');
+    text(stage.plate[1], x + width / 2, y + 18, 6, '#ffffff', 'center');
+    box(x + 38, y + 22, 4, 15, '#343d48');
+  }
+
+  function drawTrafficLight(x, baseY) {
+    box(x, baseY - 60, 4, 60, '#323b45');
+    box(x - 1, baseY - 61, 32, 4, '#323b45');
+    outlinedBox(x + 24, baseY - 65, 11, 25, '#151a21');
+    box(x + 27, baseY - 61, 5, 5, '#e53a45');
+    box(x + 27, baseY - 54, 5, 5, '#e8b92f');
+    box(x + 27, baseY - 47, 5, 5, '#35b767');
+  }
+
+  function drawCar(x, baseY, color = '#e7b62c') {
+    outlinedBox(x, baseY - 15, 56, 13, color);
+    outlinedBox(x + 11, baseY - 25, 31, 11, color);
+    box(x + 14, baseY - 23, 12, 8, '#8fc2d4');
+    box(x + 28, baseY - 23, 11, 8, '#6c9eb2');
+    box(x + 3, baseY - 11, 7, 3, '#f4e0a0');
+    box(x + 48, baseY - 11, 6, 3, '#d23b3b');
+    outlinedBox(x + 8, baseY - 5, 10, 8, '#1a1f26');
+    outlinedBox(x + 39, baseY - 5, 10, 8, '#1a1f26');
+  }
+
+  function drawCityBus(x, baseY) {
+    outlinedBox(x, baseY - 38, 91, 34, '#e8e4d9');
+    box(x + 2, baseY - 36, 87, 9, '#267b59');
+    box(x + 3, baseY - 25, 13, 15, '#78adbf');
+    for (let i = 0; i < 4; i++) box(x + 20 + i * 15, baseY - 25, 12, 12, i % 2 ? '#6798ad' : '#8ec0ce');
+    box(x + 80, baseY - 25, 7, 20, '#3f7180');
+    box(x + 34, baseY - 34, 27, 5, '#173b2c');
+    text('FOZ', x + 47, baseY - 30, 5, '#ffffff', 'center');
+    outlinedBox(x + 12, baseY - 8, 11, 9, '#1a1f26');
+    outlinedBox(x + 68, baseY - 8, 11, 9, '#1a1f26');
+  }
+
   function drawStore(store, index) {
     const x = store.x;
     const y = 58 + (index % 2) * 4;
@@ -640,7 +736,8 @@
       box(wx + 14, y + 49, 8, 8, '#d3edf0');
       box(wx + 12, y + 47, 2, 36, '#263a47');
     }
-    box(x, y + 88, store.w, 4, store.trim);
+    box(x, y + 87, store.w, 5, store.awning || store.trim);
+    for (let stripe = x + 4; stripe < x + store.w - 3; stripe += 14) box(stripe, y + 87, 7, 5, 'rgba(255,255,255,.28)');
     for (let bx = x + 6; bx < x + store.w - 4; bx += 19) box(bx, y + 9, 10, 2, 'rgba(0,0,0,.12)');
   }
 
@@ -650,25 +747,40 @@
     box(x + 5, y + 12, 3, 9, '#28313a'); box(x + 34, y + 12, 3, 9, '#28313a');
   }
 
-  function drawStage(stage, clock = elapsed) {
+  function drawSkyline(stage, clock) {
     const bands = stage.sky;
     box(0, 0, W, 62, bands[0]);
     box(0, 38, W, 42, bands[1]);
-    box(0, 72, W, 50, bands[2]);
-    const sunX = stage.final ? 395 : 420;
-    const sunY = stage.final ? 49 : 27;
-    box(sunX - 8, sunY - 8, 16, 16, stage.final ? '#ffb057' : '#ffe36b');
-    box(sunX - 11, sunY - 4, 22, 8, stage.final ? '#ffb057' : '#ffe36b');
+    box(0, 72, W, 55, bands[2]);
+    const sunset = stage.kind === 'peaceSquare';
+    const sunX = sunset ? 392 : 421;
+    const sunY = sunset ? 49 : 27;
+    box(sunX - 8, sunY - 8, 16, 16, sunset ? '#ffb057' : '#ffe36b');
+    box(sunX - 11, sunY - 4, 22, 8, sunset ? '#ffb057' : '#ffe36b');
     drawCloud((clock * 3 + 35) % 530 - 30, 28, 'rgba(255,255,255,.72)');
     drawCloud((clock * 2 + 280) % 560 - 35, 44, 'rgba(255,255,255,.52)');
-
     for (let x = 0; x < W; x += 31) {
-      const h = 17 + ((x * 7 + stageIndex * 11) % 27);
-      box(x, 61 - h, 27, h + 37, stage.final ? '#3c3a59' : '#7893a1');
-      for (let yy = 67 - h; yy < 81; yy += 8) for (let xx = x + 4; xx < x + 24; xx += 8) box(xx, yy, 3, 4, stage.final ? '#efb05d' : '#bfd5d9');
+      const height = 17 + ((x * 7 + stageIndex * 11) % 27);
+      box(x, 61 - height, 27, height + 41, sunset ? '#3c3a59' : '#7893a1');
+      for (let yy = 67 - height; yy < 84; yy += 8) {
+        for (let xx = x + 4; xx < x + 24; xx += 8) box(xx, yy, 3, 4, sunset ? '#efb05d' : '#bfd5d9');
+      }
+    }
+  }
+
+  function drawStreetSurface(clock, plaza = false) {
+    if (plaza) {
+      box(0, 148, W, 122, '#c8c0b3');
+      box(0, 148, W, 5, '#e7e0d4');
+      for (let y = 157; y < H; y += 13) {
+        box(0, y, W, 1, '#a79f94');
+        const offset = ((y / 13) % 2) * 17;
+        for (let x = offset; x < W; x += 34) box(x, y - 12, 1, 12, '#b1a99e');
+      }
+      for (let x = 0; x < W; x += 68) box(x, 250, 34, 3, '#ddd5c8');
+      return;
     }
 
-    stage.stores.forEach(drawStore);
     box(0, 156, W, 44, '#c7c1b5');
     box(0, 157, W, 3, '#f0ece3');
     for (let x = -10; x < W; x += 24) {
@@ -682,23 +794,131 @@
     box(0, 203, W, 2, '#252a31');
     for (let x = ((-clock * 8) % 80) - 20; x < W; x += 80) box(x, 252, 38, 3, '#d9c45c');
     for (let x = 0; x < W; x += 32) box(x, 235 + ((x / 32) % 2) * 5, 14, 1, '#555c65');
+  }
 
-    if (stage.plaza) {
-      drawBench(210, 177);
-      drawPalm(180, 196, .72);
-      drawPalm(279, 196, .72);
-    } else {
-      drawPalm(22 + stageIndex * 9, 196, .7);
+  function drawBibleMonument(cx, baseY) {
+    // Monumento em livro aberto para deixar a Praça da Bíblia inequívoca.
+    outlinedBox(cx - 45, baseY - 15, 90, 15, '#b9b4aa');
+    outlinedBox(cx - 37, baseY - 24, 74, 10, '#ddd8cd');
+    box(cx - 4, baseY - 59, 8, 37, '#a9a39a');
+    box(cx - 41, baseY - 58, 37, 30, '#171a20');
+    box(cx + 4, baseY - 58, 37, 30, '#171a20');
+    box(cx - 38, baseY - 55, 34, 24, '#f3eee2');
+    box(cx + 4, baseY - 55, 34, 24, '#f3eee2');
+    box(cx - 34, baseY - 51, 27, 2, '#b5afa5');
+    box(cx - 31, baseY - 46, 24, 2, '#c6c0b6');
+    box(cx + 8, baseY - 51, 27, 2, '#b5afa5');
+    box(cx + 8, baseY - 46, 24, 2, '#c6c0b6');
+    box(cx - 4, baseY - 57, 8, 28, '#d5b23a');
+    text('BÍBLIA', cx, baseY - 17, 7, '#3a342b', 'center');
+  }
+
+  function drawCathedral() {
+    // Silhueta inspirada na Catedral São João Batista: torre, cruz e telhados vermelhos.
+    box(119, 103, 243, 56, '#d7c6aa');
+    box(124, 108, 233, 51, '#eee1c9');
+    box(197, 69, 60, 90, '#d9c6a7');
+    box(202, 74, 50, 85, '#f0dfc2');
+    box(218, 42, 20, 33, '#c47b4f');
+    box(222, 38, 12, 8, '#d69462');
+    box(227, 29, 2, 12, '#f2e6cc');
+    box(223, 33, 10, 2, '#f2e6cc');
+    box(215, 84, 23, 25, '#5b4437');
+    box(219, 88, 15, 17, '#89a5af');
+    box(125, 94, 78, 13, '#9b4e35');
+    box(253, 94, 104, 13, '#9b4e35');
+    box(137, 88, 52, 9, '#bd6846');
+    box(269, 88, 75, 9, '#bd6846');
+    for (const x of [144, 174, 273, 309, 338]) {
+      outlinedBox(x, 119, 15, 29, '#6e4f40');
+      box(x + 3, 122, 9, 22, '#779aa7');
     }
+    outlinedBox(216, 119, 22, 40, '#6a4631');
+    text('SÃO JOÃO BATISTA', 282, 155, 6, '#4a3428', 'center');
+  }
 
-    outlinedBox(410, 126, 57, 17, '#185b79');
-    text('FOZ DO', 438, 133, 6, '#ffffff', 'center');
-    text('IGUAÇU', 438, 140, 7, '#ffffff', 'center');
-    box(435, 143, 4, 17, '#353c44');
+  function drawPeaceMonument(cx, baseY) {
+    outlinedBox(cx - 47, baseY - 13, 94, 13, '#d8d6cf');
+    outlinedBox(cx - 34, baseY - 22, 68, 10, '#f0eee7');
+    box(cx - 9, baseY - 75, 18, 54, '#d7d7d3');
+    box(cx - 6, baseY - 77, 12, 55, '#f3f2ec');
+    box(cx - 4, baseY - 81, 8, 7, '#d7bd52');
+    box(cx - 7, baseY - 86, 14, 7, '#2d7fa8');
+    box(cx - 4, baseY - 89, 8, 4, '#4ba3c8');
+    text('PAZ', cx, baseY - 15, 7, '#3e4650', 'center');
+  }
 
-    // Pequenos elementos de rua para dar profundidade sem usar fotografias externas.
-    box(90, 181, 3, 17, '#303842'); box(84, 178, 15, 4, '#222932'); box(86, 176, 11, 2, '#f1cc35');
-    box(341, 185, 10, 13, '#326b49'); box(339, 181, 14, 5, '#25553a');
+  function drawFozLetters(x, y) {
+    const letters = [['F','#e8ba2b'],['O','#df533e'],['Z','#3b9d66'],['D','#478cc4'],['O','#e8ba2b'],['I','#df533e'],['G','#3b9d66'],['U','#478cc4'],['A','#e8ba2b'],['Ç','#df533e'],['U','#3b9d66']];
+    letters.forEach(([letter, color], index) => text(letter, x + index * 10, y, 10, color, 'center'));
+  }
+
+  function drawStage(stage, clock = elapsed) {
+    drawSkyline(stage, clock);
+
+    if (stage.kind === 'avenidaBrasil') {
+      stage.stores.forEach(drawStore);
+      drawStreetSurface(clock, false);
+      drawPalm(25, 196, .68);
+      drawTrafficLight(321, 196);
+      drawCar(244, 195, '#e5b72b');
+      drawStreetPlate(stage, 392, 126);
+      box(87, 181, 3, 17, '#303842'); box(81, 178, 15, 4, '#222932'); box(83, 176, 11, 2, '#f1cc35');
+    } else if (stage.kind === 'almirante') {
+      stage.stores.forEach(drawStore);
+      drawStreetSurface(clock, false);
+      drawCityBus(273, 198);
+      drawStreetPlate(stage, 391, 121);
+      drawTrafficLight(37, 196);
+      // Faixa de pedestres típica de cruzamento central.
+      for (let x = 4; x < 132; x += 19) box(x, 207, 12, 47, '#d8d9d5');
+      outlinedBox(167, 169, 34, 12, '#1e6e8d');
+      text('PONTO', 184, 178, 6, '#ffffff', 'center');
+      box(182, 181, 4, 17, '#343d48');
+    } else if (stage.kind === 'bibleSquare') {
+      drawStreetSurface(clock, true);
+      box(0, 132, W, 19, '#3d8a51');
+      box(0, 143, W, 8, '#65a95f');
+      drawTree(54, 165, .95);
+      drawTree(425, 165, .95);
+      drawTree(116, 161, .7);
+      drawTree(364, 161, .7);
+      drawBibleMonument(240, 160);
+      drawBench(117, 172);
+      drawBench(321, 172);
+      drawLamp(178, 173, true);
+      drawLamp(301, 173, true);
+      drawStreetPlate(stage, 389, 118);
+      box(23, 225, 70, 10, '#3c824c'); box(28, 220, 60, 6, '#59a35e');
+      box(386, 232, 72, 10, '#3c824c'); box(391, 227, 62, 6, '#59a35e');
+    } else if (stage.kind === 'cathedral') {
+      drawCathedral();
+      drawStreetSurface(clock, false);
+      drawTree(73, 194, .78, true);
+      drawTree(402, 194, .78, true);
+      drawLamp(101, 195);
+      drawLamp(379, 195);
+      drawStreetPlate(stage, 390, 120);
+      drawCar(28, 196, '#b9c1c9');
+      for (let x = 207; x < 280; x += 14) box(x, 208, 8, 45, '#d8d9d5');
+    } else {
+      drawStreetSurface(clock, true);
+      box(0, 133, W, 18, '#285e42');
+      box(0, 144, W, 7, '#437f4d');
+      drawTree(50, 169, .92, true);
+      drawTree(430, 169, .92, true);
+      drawPalm(115, 171, .66);
+      drawPalm(365, 171, .66);
+      drawPeaceMonument(240, 163);
+      drawFozLetters(190, 158);
+      drawBench(96, 179);
+      drawBench(342, 179);
+      drawLamp(157, 181, true);
+      drawLamp(323, 181, true);
+      drawStreetPlate(stage, 390, 119);
+      box(17, 223, 82, 12, '#276943'); box(24, 218, 68, 7, '#3f9857');
+      box(381, 233, 82, 12, '#276943'); box(388, 228, 68, 7, '#3f9857');
+    }
   }
 
   function actorPalette(actor, isPlayer) {
@@ -1054,12 +1274,23 @@
   document.addEventListener('contextmenu', event => event.preventDefault());
 
   ui.play.addEventListener('click', startGame);
+  ui.iosHelp.addEventListener('click', () => ui.iosInstall.classList.add('visible'));
+  ui.iosInstallClose.addEventListener('click', () => ui.iosInstall.classList.remove('visible'));
   ui.pauseBtn.addEventListener('click', pauseGame);
   ui.resume.addEventListener('click', resumeGame);
   ui.restartPause.addEventListener('click', () => { ui.pause.classList.remove('visible'); mode = 'playing'; resetRun(); });
   ui.menuPause.addEventListener('click', backToMenu);
   ui.again.addEventListener('click', async () => { await requestLandscape(); hideOverlays(); ui.shell.classList.add('playing'); mode = 'playing'; resetRun(); });
   ui.menuResult.addEventListener('click', backToMenu);
+
+  document.addEventListener('fullscreenchange', updateViewportSize);
+  document.addEventListener('webkitfullscreenchange', updateViewportSize);
+
+  if ('serviceWorker' in nav) {
+    window.addEventListener('load', () => {
+      nav.serviceWorker.register('/sw.js').catch(() => {});
+    });
+  }
 
   function resumeAudio() {
     const AudioCtor = window.AudioContext || window.webkitAudioContext;
