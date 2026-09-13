@@ -1,5 +1,13 @@
 # Changelog
 
+## 5.1.0 — Elenco e animações renovados
+
+- Protagonista redesenhado em pixel art a partir da referência do deputado.
+- Dez adversários refeitos a partir das novas referências visuais.
+- Caminhada corrigida com quatro poses e alternância real das pernas.
+- Quadros isolados com margem transparente e recorte seguro para eliminar fragmentos durante golpes longos.
+- Golpes passam por preparação, impacto e retorno sem repetir por tempo excessivo a pose estendida.
+
 ## 5.0.0 — Sprites 128×128
 
 - Folhas raster do herói e dos dez lutadores com 16 estados de animação por personagem.

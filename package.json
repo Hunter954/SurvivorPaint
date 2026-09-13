@@ -1,6 +1,6 @@
 {
   "name": "darlon-dutra-missao-foz",
-  "version": "5.0.0",
+  "version": "5.1.0",
   "private": true,
   "description": "Beat'em up mobile em pixel art ambientado em locais de Foz do Iguaçu.",
   "main": "server.js",

@@ -107,6 +107,8 @@
   ];
 
   const SPRITE_CELL = 128;
+  const SPRITE_GUTTER = 2;
+  const WALK_FRAMES = [2, 3, 4, 5];
   const SPRITE_KEYS = ['hero', ...FIGHTER_DEFS.map(fighter => fighter.sprite)];
 
   function loadArt(src) {
@@ -122,10 +124,10 @@
   }
 
   const SPRITE_ART = Object.fromEntries(
-    SPRITE_KEYS.map(key => [key, loadArt(`/assets/sprites/${key}.png?v=5.0.0`)])
+    SPRITE_KEYS.map(key => [key, loadArt(`/assets/sprites/${key}.png?v=5.1.0`)])
   );
   const STAGE_ART = Object.fromEntries(
-    STAGES.map(stage => [stage.art, loadArt(`/assets/stages/${stage.art}.png?v=5.0.0`)])
+    STAGES.map(stage => [stage.art, loadArt(`/assets/stages/${stage.art}.png?v=5.1.0`)])
   );
 
   const keys = new Set();
@@ -156,7 +158,8 @@
   function makePlayer() {
     return {
       name: 'DARLON', x: 58, y: 211, hp: 100, maxHp: 100, speed: 78, facing: 1,
-      state: 'idle', stateTime: 0, hitDone: false, invuln: 0, flash: 0, vx: 0, vy: 0
+      state: 'idle', stateTime: 0, walkCycle: 0, hitDone: false,
+      invuln: 0, flash: 0, vx: 0, vy: 0
     };
   }
 
@@ -166,7 +169,8 @@
       id: `${stageIndex}-${defIndex}`, defIndex, def,
       x: slot === 0 ? 300 : 407, y: slot === 0 ? 204 : 226,
       hp: def.hp, maxHp: def.hp, facing: -1,
-      state: 'rest', stateTime: 0, hitDone: false, attackCooldown: .7 + slot * .25,
+      state: 'rest', stateTime: 0, walkCycle: slot * 2, moving: false,
+      hitDone: false, attackCooldown: .7 + slot * .25,
       invuln: 0, flash: 0, knockVx: 0, rise: 0, defeated: false
     };
   }
@@ -184,6 +188,7 @@
     player.y = 211;
     player.facing = 1;
     player.invuln = 1;
+    player.walkCycle = 0;
     setState(player, 'idle');
     enemies = [makeEnemy(index * 2, 0), makeEnemy(index * 2 + 1, 1)];
     particles = [];
@@ -463,13 +468,17 @@
 
     const movement = currentMove();
     const attacking = player.state === 'punch' || player.state === 'kick';
+    const movementStrength = Math.hypot(movement.x, movement.y);
     const speedScale = attacking ? .22 : 1;
     player.x += movement.x * player.speed * speedScale * dt;
     player.y += movement.y * player.speed * .62 * speedScale * dt;
     player.x = clamp(player.x, 18, stageClear ? 467 : 462);
     player.y = clamp(player.y, ARENA_TOP + 18, ARENA_BOTTOM);
     if (Math.abs(movement.x) > .08) player.facing = movement.x < 0 ? -1 : 1;
-    if (!attacking) setState(player, Math.hypot(movement.x, movement.y) > .08 ? 'walk' : 'idle');
+    if (!attacking && movementStrength > .08) {
+      player.walkCycle = (player.walkCycle + dt * 8.5 * Math.min(1, movementStrength)) % WALK_FRAMES.length;
+    }
+    if (!attacking) setState(player, movementStrength > .08 ? 'walk' : 'idle');
 
     if (stageClear && player.x > 453) beginStageExit();
   }
@@ -479,6 +488,7 @@
     enemy.invuln = Math.max(0, enemy.invuln - dt);
     enemy.flash = Math.max(0, enemy.flash - dt);
     enemy.attackCooldown = Math.max(0, enemy.attackCooldown - dt);
+    enemy.moving = false;
 
     if (enemy.state === 'ko') {
       enemy.x += enemy.knockVx * dt;
@@ -529,6 +539,8 @@
       enemy.y += (dy * 1.7 / d) * speed * .55 * dt;
       enemy.x = clamp(enemy.x, 19, 461);
       enemy.y = clamp(enemy.y, ARENA_TOP + 18, ARENA_BOTTOM);
+      enemy.moving = true;
+      enemy.walkCycle = (enemy.walkCycle + dt * 7.5) % WALK_FRAMES.length;
     }
   }
 
@@ -1118,9 +1130,19 @@
     if (actor.state === 'stand') return actor.stateTime < .3 ? 13 : 14;
     if (actor.state === 'ko') return 15;
     if (actor.state === 'hurt') return 10;
-    if (actor.state === 'punch' || (!isPlayer && actor.state === 'attack')) return actor.stateTime < .11 ? 6 : 7;
-    if (actor.state === 'kick') return actor.stateTime < .14 || actor.stateTime > .4 ? 8 : 9;
-    if (actor.state === 'walk' || actor.state === 'chase') return [2, 3, 4, 5][Math.floor(actor.stateTime * 8) % 4];
+    if (actor.state === 'punch' || (!isPlayer && actor.state === 'attack')) {
+      const duration = isPlayer ? .34 : .5;
+      const progress = clamp(actor.stateTime / duration, 0, 1);
+      return progress < .28 || progress > .82 ? 6 : 7;
+    }
+    if (actor.state === 'kick') {
+      const progress = clamp(actor.stateTime / .52, 0, 1);
+      return progress < .28 || progress > .78 ? 8 : 9;
+    }
+    if (actor.state === 'walk' || (actor.state === 'chase' && actor.moving)) {
+      const walkCycle = Number.isFinite(actor.walkCycle) ? actor.walkCycle : actor.stateTime * 8;
+      return WALK_FRAMES[Math.floor(walkCycle) % WALK_FRAMES.length];
+    }
     return Math.floor(actor.stateTime * 2.4) % 2;
   }
 
@@ -1141,7 +1163,10 @@
     ctx.translate(Math.round(actor.x), Math.round(actor.y));
     ctx.scale(actor.facing * scale, scale);
     if (actor.flash > 0 && Math.floor(actor.flash * 60) % 2 === 0) ctx.globalAlpha = .42;
-    ctx.drawImage(asset.image, col * SPRITE_CELL, row * SPRITE_CELL, SPRITE_CELL, SPRITE_CELL, -size / 2, -size * groundAnchor, size, size);
+    const sourceSize = SPRITE_CELL - SPRITE_GUTTER * 2;
+    const sourceX = col * SPRITE_CELL + SPRITE_GUTTER;
+    const sourceY = row * SPRITE_CELL + SPRITE_GUTTER;
+    ctx.drawImage(asset.image, sourceX, sourceY, sourceSize, sourceSize, -size / 2, -size * groundAnchor, size, size);
     ctx.restore();
 
     if (!isPlayer && actor.state === 'rest') text('...', actor.x, actor.y - 59 + Math.sin(demoClock * 3) * 2, 7, '#ffffff', 'center');

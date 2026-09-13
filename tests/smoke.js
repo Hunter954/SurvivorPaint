@@ -11,13 +11,27 @@ const elements = new Map();
 let queuedFrame = null;
 let drawCalls = 0;
 let spriteDrawCalls = 0;
+const heroWalkFrames = new Set();
+const spriteSourceRects = [];
 const noop = () => {};
 
 const canvasContext = new Proxy({ imageSmoothingEnabled: false }, {
   get(target, property) {
     if (property in target) return target[property];
     if (property === 'fillRect' || property === 'fillText') return () => { drawCalls += 1; };
-    if (property === 'drawImage') return () => { drawCalls += 1; spriteDrawCalls += 1; };
+    if (property === 'drawImage') return (...args) => {
+      drawCalls += 1;
+      if (args.length !== 9) return;
+      spriteDrawCalls += 1;
+      const [image, sourceX, sourceY, sourceWidth, sourceHeight] = args;
+      spriteSourceRects.push({ sourceX, sourceY, sourceWidth, sourceHeight });
+      if (image.src?.includes('/hero.png')) {
+        const col = Math.floor(sourceX / 128);
+        const row = Math.floor(sourceY / 128);
+        const frame = row * 4 + col;
+        if (frame >= 2 && frame <= 5) heroWalkFrames.add(frame);
+      }
+    };
     if (property === 'measureText') return value => ({ width: String(value).length * 6 });
     return noop;
   },
@@ -154,6 +168,12 @@ async function run() {
   assert(document.body.classList.contains('ios-device'), 'o cliente deve detectar o iPhone');
   assert(document.body.classList.contains('pseudo-fullscreen'), 'o fallback de tela cheia do iPhone deve ser ativado');
   assert(spriteDrawCalls > 100, 'as folhas raster devem ser desenhadas no Canvas');
+  assert.strictEqual(heroWalkFrames.size, 4, 'a caminhada do protagonista deve percorrer os quatro quadros alternados');
+  assert(spriteSourceRects.every(rect => (
+    rect.sourceX % 128 === 2 && rect.sourceY % 128 === 2 &&
+    rect.sourceWidth === 124 && rect.sourceHeight === 124 &&
+    rect.sourceX + rect.sourceWidth <= 512 && rect.sourceY + rect.sourceHeight <= 512
+  )), 'cada desenho deve ficar dentro da célula da folha, sem capturar fragmentos vizinhos');
   assert(drawCalls > 5000, 'o Canvas deve desenhar cenário, HUD e sprites');
   console.log(`Smoke test OK: ${drawCalls} operações de desenho em 315 frames.`);
 }
