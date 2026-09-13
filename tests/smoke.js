@@ -12,6 +12,7 @@ let queuedFrame = null;
 let drawCalls = 0;
 let spriteDrawCalls = 0;
 const heroWalkFrames = new Set();
+const heroCelebrationFrames = new Set();
 const supporterFrames = new Set();
 const spriteSourceRects = [];
 const loadedImages = new Set();
@@ -39,6 +40,9 @@ const canvasContext = new Proxy({ imageSmoothingEnabled: false }, {
         const col = Math.floor(sourceX / 128);
         const row = Math.floor(sourceY / 128);
         supporterFrames.add(row * 4 + col);
+      }
+      if (image.src?.includes('/hero-celebrate.png')) {
+        heroCelebrationFrames.add(Math.floor(sourceX / 128));
       }
     };
     if (property === 'measureText') return value => ({ width: String(value).length * 6 });
@@ -140,7 +144,19 @@ function key(type, code) {
 
 async function run() {
   const source = fs.readFileSync(require.resolve('../public/game.js'), 'utf8');
-  vm.runInThisContext(source, { filename: 'public/game.js' });
+  const instrumentedSource = source.replace(
+    '  requestAnimationFrame(frame);\n})();',
+    `  window.__MISSAO_FOZ_TEST__ = {
+    startFinalCelebration,
+    transitionPhase: () => transition?.phase || null,
+    celebrationTime: () => finalCelebration
+  };
+
+  requestAnimationFrame(frame);
+})();`
+  );
+  assert.notStrictEqual(instrumentedSource, source, 'o cliente deve aceitar a instrumentação isolada do smoke test');
+  vm.runInThisContext(instrumentedSource, { filename: 'public/game.js' });
 
   tick(16);
   makeElement('playBtn').dispatch('click');
@@ -172,23 +188,72 @@ async function run() {
   makeElement('restartPauseBtn').dispatch('click');
   for (let frame = 291; frame <= 315; frame++) tick(16 + frame * 16);
 
-  assert(makeElement('gameShell').classList.contains('playing'), 'o jogo deve permanecer no modo de execução');
+  const hooks = window.__MISSAO_FOZ_TEST__;
+  let timelineFrame = 315;
+  const advance = count => {
+    for (let i = 0; i < count; i++) {
+      timelineFrame += 1;
+      tick(16 + timelineFrame * 16);
+    }
+  };
+
+  hooks.startFinalCelebration();
+  assert.strictEqual(hooks.transitionPhase(), 'celebration-out', 'a comemoração deve começar com fade-out');
+  advance(22);
+  const entryFade = Number(makeElement('fadeLayer').style.opacity);
+  assert(entryFade > .1 && entryFade < .9, 'o fade de entrada deve progredir de forma gradual');
+  advance(26);
+  assert.strictEqual(hooks.transitionPhase(), 'celebration-in', 'a roda de comemoração deve surgir atrás da tela escura');
+  assert(hooks.celebrationTime() > 0, 'a animação de comemoração deve iniciar no ponto escuro da transição');
+  advance(46);
+  assert.strictEqual(hooks.transitionPhase(), null, 'o fade-in deve terminar antes da comemoração continuar');
+  assert.strictEqual(makeElement('fadeLayer').style.opacity, '0', 'a comemoração deve ficar totalmente visível');
+
+  let guard = 0;
+  while (hooks.transitionPhase() !== 'celebration-result-out' && guard < 380) {
+    advance(1);
+    guard += 1;
+  }
+  assert.strictEqual(hooks.transitionPhase(), 'celebration-result-out', 'o encerramento deve usar um novo fade-out');
+  advance(22);
+  const resultFadeOut = Number(makeElement('fadeLayer').style.opacity);
+  assert(resultFadeOut > .1 && resultFadeOut < .9, 'o fade para o resultado deve ser gradual');
+
+  guard = 0;
+  while (!makeElement('resultOverlay').classList.contains('visible') && guard < 60) {
+    advance(1);
+    guard += 1;
+  }
+  assert(makeElement('resultOverlay').classList.contains('visible'), 'a tela de vitória deve aparecer atrás do fade');
+  assert.strictEqual(hooks.transitionPhase(), 'result-in', 'a tela de vitória deve ser revelada com fade-in');
+  advance(22);
+  const resultFadeIn = Number(makeElement('fadeLayer').style.opacity);
+  assert(resultFadeIn > .1 && resultFadeIn < .9, 'a revelação do resultado deve ser gradual');
+  advance(28);
+  assert.strictEqual(hooks.transitionPhase(), null, 'a transição final deve concluir sem permanecer travada');
+  assert.strictEqual(makeElement('fadeLayer').style.opacity, '0', 'o resultado deve terminar totalmente visível');
+
+  assert(!makeElement('gameShell').classList.contains('playing'), 'os controles de jogo devem ser ocultados após a vitória');
   assert(!makeElement('menuOverlay').classList.contains('visible'), 'o menu deve estar oculto durante a partida');
   assert(document.body.classList.contains('ios-device'), 'o cliente deve detectar o iPhone');
   assert(document.body.classList.contains('pseudo-fullscreen'), 'o fallback de tela cheia do iPhone deve ser ativado');
   assert(spriteDrawCalls > 100, 'as folhas raster devem ser desenhadas no Canvas');
   assert.strictEqual(heroWalkFrames.size, 4, 'a caminhada do protagonista deve percorrer os quatro quadros alternados');
+  assert.strictEqual(heroCelebrationFrames.size, 4, 'a comemoração deve percorrer os quatro quadros do protagonista');
   assert(supporterFrames.size >= 8, 'a torcida inicial deve alternar os dois quadros de quatro apoiadores diferentes');
   assert(drawnTexts.includes('1444'), 'placas e bandeiras da torcida devem exibir o número 1444');
-  assert([...loadedImages].some(src => src.includes('/supporters.png?v=5.2.0')), 'a folha da torcida 5.2 deve ser carregada');
-  assert([...loadedImages].some(src => src.includes('/hero-celebrate.png?v=5.2.0')), 'a animação final 5.2 deve ser carregada');
+  assert([...loadedImages].some(src => src.includes('/supporters.png?v=5.3.0')), 'a folha da torcida 5.3 deve ser carregada');
+  assert([...loadedImages].some(src => src.includes('/hero-celebrate.png?v=5.3.0')), 'a animação final 5.3 deve ser carregada');
+  for (const stage of ['avenida-brasil', 'almirante-barroso', 'praca-biblia', 'catedral-sao-joao', 'praca-paz']) {
+    assert([...loadedImages].some(src => src.includes(`/assets/stages/${stage}.png?v=5.3.0`)), `o cenário ${stage} 5.3 deve ser carregado`);
+  }
   assert(spriteSourceRects.every(rect => (
     rect.sourceX % 128 === 2 && rect.sourceY % 128 === 2 &&
     rect.sourceWidth === 124 && rect.sourceHeight === 124 &&
     rect.sourceX + rect.sourceWidth <= 512 && rect.sourceY + rect.sourceHeight <= 512
   )), 'cada desenho deve ficar dentro da célula da folha, sem capturar fragmentos vizinhos');
   assert(drawCalls > 5000, 'o Canvas deve desenhar cenário, HUD e sprites');
-  console.log(`Smoke test OK: ${drawCalls} operações de desenho em 315 frames.`);
+  console.log(`Smoke test OK: ${drawCalls} operações de desenho em ${timelineFrame} frames.`);
 }
 
 run().catch(error => {

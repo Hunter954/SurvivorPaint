@@ -1,6 +1,6 @@
 # Darlon Dutra: Missão Foz
 
-Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeiro para celular. O jogo percorre cinco quarteirões fictícios inspirados no centro urbano de Foz do Iguaçu.
+Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeiro para celular. O jogo percorre cinco locais reconhecíveis de Foz do Iguaçu, recriados a partir de referências reais.
 
 > Obra fictícia e satírica. Os dez adversários são personagens adultos fictícios, apresentados como lutadores hostis. O jogo não transforma pessoas em situação de vulnerabilidade ou grupos étnicos em alvos.
 
@@ -26,6 +26,12 @@ Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeir
 - Cinco fundos raster em 960×540 com arte pixelada própria para Avenida Brasil, Rua Almirante Barroso, Praça da Bíblia, Catedral São João Batista e Praça da Paz.
 - O jogo mantém o desenho procedural como fallback caso um asset ainda esteja carregando ou falhe.
 
+## Atualização 5.3 — fases reais e comemoração suave
+
+- Rua Almirante Barroso, Praça da Bíblia, Catedral São João Batista e Praça da Paz refeitas em pixel art a partir das referências reais.
+- Todos os cenários removem veículos e pedestres da arte-base e reservam uma faixa ampla para a luta.
+- A comemoração final agora entra e sai com fade suave, incluindo a transição para a tela de vitória.
+
 ## Atualização 4.1 — iPhone e cenários de Foz
 
 - PWA instalável, configurado para `fullscreen` e orientação `landscape`.
@@ -33,10 +39,10 @@ Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeir
 - Tutorial dentro do menu para abrir o jogo sem as barras do Safari.
 - Cinco fases com identidade própria e nomes reais:
   1. Avenida Brasil — comércio, vitrines, semáforo e trânsito do Centro.
-  2. Rua Almirante Barroso — esquina urbana, ponto de ônibus e faixa de pedestres.
-  3. Praça da Bíblia — praça pavimentada, jardins, bancos, iluminação e monumento em forma de livro.
-  4. Avenida Jorge Schimmelpfeng — cenário com a Catedral São João Batista.
-  5. Praça da Paz — paisagismo, monumento da paz e letreiro de Foz do Iguaçu.
+  2. Rua Almirante Barroso — sequência real de comércios com Loja Real Lili, Mirian e Encopel.
+  3. Praça da Bíblia — escultura circular vermelha, coreto e edifício com murais florais.
+  4. Catedral São João Batista — torre histórica e conjunto paroquial da Avenida Jorge Schimmelpfeng.
+  5. Praça da Paz — muro verde, árvores e o grande painel de mosaico.
 
 ## Controles
 
@@ -110,7 +116,7 @@ curl http://localhost:3000/api/health
 O healthcheck deve responder:
 
 ```json
-{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"5.2.0"}
+{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"5.3.0"}
 ```
 
 ## Railway

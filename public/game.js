@@ -85,7 +85,7 @@
       name: 'PRAÇA DA BÍBLIA', zone: 'FOZ DO IGUAÇU • PARANÁ', kind: 'bibleSquare', art: 'praca-biblia', plate: ['PRAÇA DA', 'BÍBLIA'], sky: ['#5eadd0', '#9bd3e3', '#e2eef0'], plaza: true, stores: []
     },
     {
-      name: 'AV. JORGE SCHIMMELPFENG', zone: 'CATEDRAL SÃO JOÃO BATISTA', kind: 'cathedral', art: 'catedral-sao-joao', plate: ['AV. JORGE', 'SCHIMMELPFENG'], sky: ['#4b7695', '#88abc0', '#d2d8d5'], stores: []
+      name: 'CATEDRAL SÃO JOÃO BATISTA', zone: 'AV. JORGE SCHIMMELPFENG • FOZ DO IGUAÇU', kind: 'cathedral', art: 'catedral-sao-joao', plate: ['AV. JORGE', 'SCHIMMELPFENG'], sky: ['#4b7695', '#88abc0', '#d2d8d5'], stores: []
     },
     {
       name: 'PRAÇA DA PAZ', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'peaceSquare', art: 'praca-paz', plate: ['PRAÇA', 'DA PAZ'], sky: ['#283463', '#685687', '#e68d72'], plaza: true, final: true, stores: []
@@ -109,7 +109,9 @@
   const SPRITE_CELL = 128;
   const SPRITE_GUTTER = 2;
   const WALK_FRAMES = [2, 3, 4, 5];
-  const ASSET_VERSION = '5.2.0';
+  const ASSET_VERSION = '5.3.0';
+  const STAGE_FADE_DURATION = .42;
+  const CELEBRATION_FADE_DURATION = .7;
   const FINAL_CELEBRATION_DURATION = 5.4;
   const SPRITE_KEYS = ['hero', ...FIGHTER_DEFS.map(fighter => fighter.sprite)];
   const CROWD_COUNTS = [4, 7, 10, 13, 16];
@@ -337,10 +339,10 @@
     lastFrame = performance.now();
   }
 
-  function finishGame(victory) {
+  function finishGame(victory, keepFade = false) {
     mode = victory ? 'victory' : 'over';
     resetInput();
-    ui.fade.style.opacity = '0';
+    if (!keepFade) ui.fade.style.opacity = '0';
     const finalScore = Math.max(0, Math.round(score + knockouts * 100 + stageIndex * 250 + player.hp * 3));
     const best = Number(localStorage.getItem('missaoFozBest') || 0);
     if (finalScore > best) localStorage.setItem('missaoFozBest', String(finalScore));
@@ -355,8 +357,7 @@
     victory ? sfxVictory() : sfxLose();
   }
 
-  function startFinalCelebration() {
-    if (finalCelebration > 0) return;
+  function prepareFinalCelebration() {
     finalCelebration = .001;
     player.x = W / 2;
     player.y = 220;
@@ -367,19 +368,29 @@
     sfxClear();
   }
 
+  function startFinalCelebration() {
+    if (finalCelebration > 0 || transition) return;
+    transition = { phase: 'celebration-out', t: 0 };
+    resetInput();
+  }
+
   function beginStageExit() {
     if (transition || finalCelebration > 0 || stageIndex === STAGES.length - 1) return;
-    transition = { phase: 'out', t: 0, next: stageIndex + 1 };
+    transition = { phase: 'stage-out', t: 0, next: stageIndex + 1 };
     resetInput();
     sfxDoor();
   }
 
   function updateTransition(dt) {
     if (!transition) return false;
-    const duration = .42;
+    const celebrationPhase = transition.phase.startsWith('celebration-') || transition.phase === 'result-in';
+    const duration = celebrationPhase ? CELEBRATION_FADE_DURATION : STAGE_FADE_DURATION;
     transition.t += dt;
-    if (transition.phase === 'out') {
-      ui.fade.style.opacity = String(clamp(transition.t / duration, 0, 1));
+    const linearProgress = clamp(transition.t / duration, 0, 1);
+    const progress = linearProgress * linearProgress * (3 - 2 * linearProgress);
+
+    if (transition.phase === 'stage-out') {
+      ui.fade.style.opacity = String(progress);
       if (transition.t >= duration) {
         if (transition.next >= STAGES.length) {
           transition = null;
@@ -388,15 +399,44 @@
         }
         player.hp = Math.min(player.maxHp, player.hp + 12);
         loadStage(transition.next);
-        transition.phase = 'in';
+        transition.phase = 'stage-in';
         transition.t = 0;
       }
-    } else {
-      ui.fade.style.opacity = String(1 - clamp(transition.t / duration, 0, 1));
+    } else if (transition.phase === 'stage-in') {
+      ui.fade.style.opacity = String(1 - progress);
       if (transition.t >= duration) {
         transition = null;
         ui.fade.style.opacity = '0';
       }
+    } else if (transition.phase === 'celebration-out') {
+      ui.fade.style.opacity = String(progress);
+      if (transition.t >= duration) {
+        prepareFinalCelebration();
+        transition.phase = 'celebration-in';
+        transition.t = 0;
+      }
+    } else if (transition.phase === 'celebration-in') {
+      ui.fade.style.opacity = String(1 - progress);
+      if (transition.t >= duration) {
+        transition = null;
+        ui.fade.style.opacity = '0';
+      }
+    } else if (transition.phase === 'celebration-result-out') {
+      ui.fade.style.opacity = String(progress);
+      if (transition.t >= duration) {
+        finishGame(true, true);
+        transition.phase = 'result-in';
+        transition.t = 0;
+      }
+    } else if (transition.phase === 'result-in') {
+      ui.fade.style.opacity = String(1 - progress);
+      if (transition.t >= duration) {
+        transition = null;
+        ui.fade.style.opacity = '0';
+      }
+    } else {
+      transition = null;
+      ui.fade.style.opacity = '0';
     }
     return true;
   }
@@ -638,18 +678,18 @@
       toastTimer -= dt;
       if (toastTimer <= 0) ui.toast.classList.remove('visible');
     }
+    if (mode === 'playing') elapsed += dt;
+    if (updateTransition(dt)) {
+      if (mode === 'playing') updateEffects(dt);
+      return;
+    }
     if (mode !== 'playing') return;
-    elapsed += dt;
     shake = Math.max(0, shake - dt * 18);
     flash = Math.max(0, flash - dt);
     stageBanner = Math.max(0, stageBanner - dt);
     if (comboTimer > 0) {
       comboTimer -= dt;
       if (comboTimer <= 0) combo = 0;
-    }
-    if (updateTransition(dt)) {
-      updateEffects(dt);
-      return;
     }
     if (gameOverDelay > 0) {
       gameOverDelay -= dt;
@@ -661,7 +701,11 @@
       finalCelebration += dt;
       player.stateTime += dt;
       updateEffects(dt);
-      if (finalCelebration >= FINAL_CELEBRATION_DURATION) finishGame(true);
+      if (finalCelebration >= FINAL_CELEBRATION_DURATION) {
+        finalCelebration = FINAL_CELEBRATION_DURATION;
+        transition = { phase: 'celebration-result-out', t: 0 };
+        resetInput();
+      }
       return;
     }
     updatePlayer(dt);
@@ -1417,7 +1461,7 @@
   }
 
   function drawExit() {
-    if (!stageClear || finalCelebration > 0) return;
+    if (!stageClear || finalCelebration > 0 || stageIndex === STAGES.length - 1) return;
     const pulse = Math.floor(demoClock * 5) % 2;
     const x = 456 + pulse * 2;
     box(x, 179, 17, 42, 'rgba(255,216,0,.2)');

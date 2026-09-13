@@ -1,5 +1,14 @@
 # Changelog
 
+## 5.3.0 — Foz real em pixel art
+
+- Rua Almirante Barroso refeita a partir da referência real, com os comércios reconhecíveis e área de luta livre de veículos.
+- Praça da Bíblia agora usa a escultura circular vermelha, o coreto e o prédio com murais florais do local.
+- Catedral São João Batista recriada com a torre ocre, telhados vermelhos e conjunto paroquial da Avenida Jorge Schimmelpfeng.
+- Praça da Paz refeita com o muro verde, a rampa, a faixa tátil e o painel de mosaico da referência.
+- Entrada e saída da comemoração final agora usam fade suave, incluindo a revelação da tela de vitória.
+- Cache offline e identificação de versão atualizados para 5.3.0.
+
 ## 5.2.0 — Torcida 1444 e Avenida Brasil
 
 - Avenida Brasil refeita em pixel art a partir da referência real, sem carros e com área de luta sobre a calçada portuguesa.

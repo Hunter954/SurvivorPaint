@@ -243,7 +243,7 @@ body.ios-device:not(.standalone-mode) .ios-only { display: inline-block; }
   pointer-events: none;
 }
 .toast.visible { opacity: 1; transform: translate(-50%,0); }
-.fade-layer { position: absolute; inset: 0; z-index: 24; background: #05070c; opacity: 0; pointer-events: none; }
+.fade-layer { position: absolute; inset: 0; z-index: 90; background: #05070c; opacity: 0; pointer-events: none; will-change: opacity; }
 .rotate-overlay {
   position: absolute;
   inset: 0;

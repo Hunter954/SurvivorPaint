@@ -54,7 +54,7 @@ const server = http.createServer((req, res) => {
   try { pathname = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`).pathname; } catch {}
 
   if (pathname === '/api/health') {
-    const payload = JSON.stringify({ ok: true, game: 'Darlon Dutra: Missão Foz', version: '5.2.0' });
+    const payload = JSON.stringify({ ok: true, game: 'Darlon Dutra: Missão Foz', version: '5.3.0' });
     if (method === 'HEAD') {
       res.writeHead(200, { 'Content-Type': 'application/json; charset=utf-8', 'Content-Length': Buffer.byteLength(payload) });
       return res.end();
