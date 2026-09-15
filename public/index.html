@@ -14,7 +14,7 @@
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icon-180.png">
   <link rel="icon" type="image/svg+xml" href="assets/icon.svg">
-  <link rel="stylesheet" href="style.css?v=5.3.0">
+  <link rel="stylesheet" href="style.css?v=5.4.0">
 </head>
 <body>
   <main id="gameShell" class="game-shell">
@@ -22,14 +22,35 @@
 
     <section id="menuOverlay" class="overlay visible menu-overlay">
       <div class="menu-card">
-        <p class="eyebrow">UM JOGO EM PIXEL ART</p>
+        <div class="menu-topline">
+          <p class="eyebrow">BEAT 'EM UP EM PIXEL ART</p>
+          <span class="version-chip">V5.4</span>
+        </div>
         <h1><span>DARLON DUTRA</span><strong>MISSÃO FOZ</strong></h1>
-        <p class="lead">Atravesse os quarteirões, encare lutadores fictícios e libere o caminho pela cidade.</p>
-        <button id="playBtn" class="pixel-btn play-btn" type="button">JOGAR AGORA</button>
-        <button id="iosHelpBtn" class="pixel-btn ios-only ios-help-btn" type="button">TELA CHEIA NO IPHONE</button>
+        <p class="lead">Domine as ruas, libere a Câmara Municipal e encare a batalha final no plenário.</p>
+
+        <div class="route-strip" aria-label="Rota da missão">
+          <span><b>01–02</b> RUAS</span>
+          <i aria-hidden="true">›</i>
+          <span><b>03–05</b> PRAÇAS</span>
+          <i aria-hidden="true">›</i>
+          <span class="route-final"><b>06</b> CÂMARA</span>
+        </div>
+
+        <div class="mission-card">
+          <span>NOVA MISSÃO FINAL</span>
+          <strong>ENTRE NA CÂMARA MUNICIPAL</strong>
+          <small>Encontre a porta, entre no plenário e enfrente os dois últimos oponentes.</small>
+        </div>
+
+        <div class="menu-actions">
+          <button id="playBtn" class="pixel-btn play-btn" type="button"><span aria-hidden="true">▶</span> JOGAR AGORA</button>
+          <button id="iosHelpBtn" class="pixel-btn ios-only ios-help-btn" type="button">TELA CHEIA NO IPHONE</button>
+        </div>
         <div class="menu-controls">
-          <span><b>CELULAR</b> joystick + SOCO + CHUTE</span>
-          <span><b>PC</b> WASD/setas + J + K</span>
+          <span><b>CELULAR</b> JOYSTICK · SOCO · CHUTE</span>
+          <span><b>PC</b> WASD/SETAS · J · K</span>
+          <span><b>CAMPANHA</b> 6 FASES · 12 OPONENTES</span>
         </div>
         <p class="fiction-note">Obra fictícia e satírica. Personagens adversários são adultos fictícios em combate.</p>
       </div>
@@ -92,6 +113,6 @@
     <div id="fadeLayer" class="fade-layer"></div>
   </main>
 
-  <script src="game.js?v=5.3.0"></script>
+  <script src="game.js?v=5.4.0"></script>
 </body>
 </html>

@@ -1,8 +1,8 @@
 # Darlon Dutra: Missão Foz
 
-Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeiro para celular. O jogo percorre cinco locais reconhecíveis de Foz do Iguaçu, recriados a partir de referências reais.
+Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeiro para celular. O jogo percorre seis fases em locais reconhecíveis de Foz do Iguaçu, recriados a partir de referências reais.
 
-> Obra fictícia e satírica. Os dez adversários são personagens adultos fictícios, apresentados como lutadores hostis. O jogo não transforma pessoas em situação de vulnerabilidade ou grupos étnicos em alvos.
+> Obra fictícia e satírica. Os doze adversários são personagens adultos fictícios, apresentados como lutadores hostis. O jogo não transforma pessoas em situação de vulnerabilidade ou grupos étnicos em alvos.
 
 ## O que mudou na versão 4.0
 
@@ -32,6 +32,16 @@ Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeir
 - Todos os cenários removem veículos e pedestres da arte-base e reservam uma faixa ampla para a luta.
 - A comemoração final agora entra e sai com fade suave, incluindo a transição para a tela de vitória.
 
+## Atualização 5.4 — Câmara Municipal e nova interface
+
+- Sexta fase desbloqueável na Câmara Municipal de Foz do Iguaçu.
+- A fachada possui uma porta interativa: ao alcançá-la, o jogo faz fade e carrega o plenário.
+- Plenário semicircular em pixel art, sem cadeiras ou obstáculos no piso da arena.
+- Dois adversários adultos fictícios de terno e gravata, incluindo o novo chefe final.
+- Comemoração final retorna à fachada da Câmara e preserva a torcida 1444.
+- Menu renovado com rota das fases, resumo da missão, controles e progresso mais legíveis.
+- HUD com seis etapas, objetivo contextual e indicação clara da entrada da Câmara.
+
 ## Atualização 4.1 — iPhone e cenários de Foz
 
 - PWA instalável, configurado para `fullscreen` e orientação `landscape`.
@@ -43,6 +53,7 @@ Beat'em up 2D single-player em pixel art, feito para navegador e pensado primeir
   3. Praça da Bíblia — escultura circular vermelha, coreto e edifício com murais florais.
   4. Catedral São João Batista — torre histórica e conjunto paroquial da Avenida Jorge Schimmelpfeng.
   5. Praça da Paz — muro verde, árvores e o grande painel de mosaico.
+  6. Câmara Municipal — fachada com porta interativa e plenário semicircular como arena final.
 
 ## Controles
 
@@ -116,7 +127,7 @@ curl http://localhost:3000/api/health
 O healthcheck deve responder:
 
 ```json
-{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"5.3.0"}
+{"ok":true,"game":"Darlon Dutra: Missão Foz","version":"5.4.0"}
 ```
 
 ## Railway

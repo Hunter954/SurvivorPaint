@@ -15,7 +15,7 @@
   },
   "characters": [
     "hero", "faixa", "luvas", "moicano", "jaqueta", "bone",
-    "capuz", "colete", "atleta", "mascara", "campeao"
+    "capuz", "colete", "atleta", "mascara", "campeao", "assessor", "lider"
   ],
   "extras": {
     "supporters": { "columns": 4, "rows": 4, "pairedCheerFrames": true },

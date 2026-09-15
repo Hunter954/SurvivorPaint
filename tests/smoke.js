@@ -148,6 +148,10 @@ async function run() {
     '  requestAnimationFrame(frame);\n})();',
     `  window.__MISSAO_FOZ_TEST__ = {
     startFinalCelebration,
+    goToCouncil: () => loadStage(STAGES.length - 1),
+    enterCouncil,
+    stageArea: () => stageArea,
+    enemyCount: () => enemies.length,
     transitionPhase: () => transition?.phase || null,
     celebrationTime: () => finalCelebration
   };
@@ -197,6 +201,23 @@ async function run() {
     }
   };
 
+  hooks.goToCouncil();
+  advance(1);
+  assert.strictEqual(hooks.stageArea(), 'exterior', 'a sexta fase deve começar diante da Câmara');
+  assert.strictEqual(hooks.enemyCount(), 0, 'a fachada deve funcionar como área de entrada, sem combate');
+  assert(drawnTexts.includes('OBJETIVO • ENTRE PELA PORTA'), 'o HUD deve explicar como entrar na Câmara');
+  hooks.enterCouncil();
+  assert.strictEqual(hooks.transitionPhase(), 'council-out', 'a porta deve iniciar um fade para o interior');
+  advance(14);
+  const councilFade = Number(makeElement('fadeLayer').style.opacity);
+  assert(councilFade > .1 && councilFade < .9, 'a entrada na Câmara deve usar fade gradual');
+  advance(14);
+  assert.strictEqual(hooks.stageArea(), 'interior', 'a transição deve carregar o plenário');
+  assert.strictEqual(hooks.enemyCount(), 2, 'o plenário deve receber os dois oponentes de terno');
+  assert.strictEqual(hooks.transitionPhase(), 'council-in', 'o plenário deve ser revelado com fade-in');
+  advance(28);
+  assert.strictEqual(hooks.transitionPhase(), null, 'a entrada no plenário deve concluir sem travar');
+
   hooks.startFinalCelebration();
   assert.strictEqual(hooks.transitionPhase(), 'celebration-out', 'a comemoração deve começar com fade-out');
   advance(22);
@@ -205,6 +226,7 @@ async function run() {
   advance(26);
   assert.strictEqual(hooks.transitionPhase(), 'celebration-in', 'a roda de comemoração deve surgir atrás da tela escura');
   assert(hooks.celebrationTime() > 0, 'a animação de comemoração deve iniciar no ponto escuro da transição');
+  assert.strictEqual(hooks.stageArea(), 'exterior', 'a comemoração final deve voltar à fachada da Câmara');
   advance(46);
   assert.strictEqual(hooks.transitionPhase(), null, 'o fade-in deve terminar antes da comemoração continuar');
   assert.strictEqual(makeElement('fadeLayer').style.opacity, '0', 'a comemoração deve ficar totalmente visível');
@@ -242,10 +264,13 @@ async function run() {
   assert.strictEqual(heroCelebrationFrames.size, 4, 'a comemoração deve percorrer os quatro quadros do protagonista');
   assert(supporterFrames.size >= 8, 'a torcida inicial deve alternar os dois quadros de quatro apoiadores diferentes');
   assert(drawnTexts.includes('1444'), 'placas e bandeiras da torcida devem exibir o número 1444');
-  assert([...loadedImages].some(src => src.includes('/supporters.png?v=5.3.0')), 'a folha da torcida 5.3 deve ser carregada');
-  assert([...loadedImages].some(src => src.includes('/hero-celebrate.png?v=5.3.0')), 'a animação final 5.3 deve ser carregada');
-  for (const stage of ['avenida-brasil', 'almirante-barroso', 'praca-biblia', 'catedral-sao-joao', 'praca-paz']) {
-    assert([...loadedImages].some(src => src.includes(`/assets/stages/${stage}.png?v=5.3.0`)), `o cenário ${stage} 5.3 deve ser carregado`);
+  assert(makeElement('resultStats').innerHTML.includes('/12'), 'o resultado deve contabilizar os doze oponentes');
+  assert([...loadedImages].some(src => src.includes('/supporters.png?v=5.4.0')), 'a folha da torcida 5.4 deve ser carregada');
+  assert([...loadedImages].some(src => src.includes('/hero-celebrate.png?v=5.4.0')), 'a animação final 5.4 deve ser carregada');
+  assert([...loadedImages].some(src => src.includes('/assessor.png?v=5.4.0')), 'o assessor deve usar a nova folha de sprites');
+  assert([...loadedImages].some(src => src.includes('/lider.png?v=5.4.0')), 'o líder deve usar a nova folha de sprites');
+  for (const stage of ['avenida-brasil', 'almirante-barroso', 'praca-biblia', 'catedral-sao-joao', 'praca-paz', 'camara-municipal', 'camara-plenario']) {
+    assert([...loadedImages].some(src => src.includes(`/assets/stages/${stage}.png?v=5.4.0`)), `o cenário ${stage} 5.4 deve ser carregado`);
   }
   assert(spriteSourceRects.every(rect => (
     rect.sourceX % 128 === 2 && rect.sourceY % 128 === 2 &&

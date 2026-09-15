@@ -1,5 +1,16 @@
 # Changelog
 
+## 5.4.0 — Câmara Municipal e UI renovada
+
+- Nova sexta fase na Câmara Municipal de Foz do Iguaçu, liberada após a Praça da Paz.
+- Fachada em pixel art com entrada destacada e porta interativa.
+- Transição em fade leva ao plenário semicircular, agora sem cadeiras e com piso livre para combate.
+- Dois novos oponentes adultos fictícios de terno e gravata: Assessor e Líder.
+- Comemoração final retorna à fachada da Câmara antes da tela de resultado.
+- Menu reorganizado com rota da campanha, missão final, controles e contagem de conteúdo.
+- HUD passa a mostrar seis fases, progresso visual e objetivos contextuais.
+- Cache offline, testes e identificação de versão atualizados para 5.4.0.
+
 ## 5.3.0 — Foz real em pixel art
 
 - Rua Almirante Barroso refeita a partir da referência real, com os comércios reconhecíveis e área de luta livre de veículos.

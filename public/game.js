@@ -88,11 +88,14 @@
       name: 'CATEDRAL SÃO JOÃO BATISTA', zone: 'AV. JORGE SCHIMMELPFENG • FOZ DO IGUAÇU', kind: 'cathedral', art: 'catedral-sao-joao', plate: ['AV. JORGE', 'SCHIMMELPFENG'], sky: ['#4b7695', '#88abc0', '#d2d8d5'], stores: []
     },
     {
-      name: 'PRAÇA DA PAZ', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'peaceSquare', art: 'praca-paz', plate: ['PRAÇA', 'DA PAZ'], sky: ['#283463', '#685687', '#e68d72'], plaza: true, final: true, stores: []
+      name: 'PRAÇA DA PAZ', zone: 'CENTRO • FOZ DO IGUAÇU', kind: 'peaceSquare', art: 'praca-paz', plate: ['PRAÇA', 'DA PAZ'], sky: ['#283463', '#685687', '#e68d72'], plaza: true, stores: []
+    },
+    {
+      name: 'CÂMARA MUNICIPAL', zone: 'FOZ DO IGUAÇU • MISSÃO FINAL', kind: 'council', art: 'camara-municipal', interiorArt: 'camara-plenario', plate: ['CÂMARA', 'MUNICIPAL'], sky: ['#55aee8', '#9bd3eb', '#e8f1ed'], final: true, stores: []
     }
   ];
 
-  // Dez adversários adultos, fictícios e visualmente apresentados como lutadores.
+  // Doze adversários adultos, fictícios e visualmente apresentados como lutadores.
   const FIGHTER_DEFS = [
     { name: 'FAIXA', sprite: 'faixa', skin: '#c9865b', shirt: '#ba2839', pants: '#273241', hair: '#251811', accessory: 'bandana', hp: 48, speed: 34, damage: 7 },
     { name: 'LUVAS', sprite: 'luvas', skin: '#8d5739', shirt: '#2782bf', pants: '#20293a', hair: '#141414', accessory: 'gloves', hp: 52, speed: 31, damage: 8 },
@@ -103,18 +106,21 @@
     { name: 'COLETE', sprite: 'colete', skin: '#d49368', shirt: '#323b45', pants: '#42516b', hair: '#39271d', accessory: 'vest', hp: 75, speed: 32, damage: 11 },
     { name: 'ATLETA', sprite: 'atleta', skin: '#9b6041', shirt: '#e6b52e', pants: '#1c3654', hair: '#1b1512', accessory: 'headband', hp: 78, speed: 44, damage: 11 },
     { name: 'MÁSCARA', sprite: 'mascara', skin: '#d7a078', shirt: '#3e314f', pants: '#242333', hair: '#171317', accessory: 'mask', hp: 86, speed: 40, damage: 12 },
-    { name: 'CAMPEÃO', sprite: 'campeao', skin: '#8c5437', shirt: '#8b2635', pants: '#151b25', hair: '#111111', accessory: 'champion', hp: 125, speed: 35, damage: 14, scale: 1.1 }
+    { name: 'CAMPEÃO', sprite: 'campeao', skin: '#8c5437', shirt: '#8b2635', pants: '#151b25', hair: '#111111', accessory: 'champion', hp: 125, speed: 35, damage: 14, scale: 1.1 },
+    { name: 'ASSESSOR', sprite: 'assessor', skin: '#c98256', shirt: '#181a1e', pants: '#17191d', hair: '#201712', accessory: 'suit', hp: 104, speed: 41, damage: 13, scale: 1.02 },
+    { name: 'LÍDER', sprite: 'lider', skin: '#d08a5c', shirt: '#17233a', pants: '#17233a', hair: '#454247', accessory: 'suitBoss', hp: 165, speed: 37, damage: 16, scale: 1.1 }
   ];
 
   const SPRITE_CELL = 128;
   const SPRITE_GUTTER = 2;
   const WALK_FRAMES = [2, 3, 4, 5];
-  const ASSET_VERSION = '5.3.0';
+  const ASSET_VERSION = '5.4.0';
   const STAGE_FADE_DURATION = .42;
   const CELEBRATION_FADE_DURATION = .7;
   const FINAL_CELEBRATION_DURATION = 5.4;
   const SPRITE_KEYS = ['hero', ...FIGHTER_DEFS.map(fighter => fighter.sprite)];
-  const CROWD_COUNTS = [4, 7, 10, 13, 16];
+  const CROWD_COUNTS = [4, 7, 10, 13, 16, 16];
+  const COUNCIL_DOOR_X = 306;
   const CROWD_SLOTS = [
     { x: 38, y: 184, scale: .82, facing: 1, prop: 'flag' },
     { x: 442, y: 184, scale: .82, facing: -1, prop: 'sign' },
@@ -165,14 +171,16 @@
   );
   const SUPPORTER_ART = loadArt(`/assets/sprites/supporters.png?v=${ASSET_VERSION}`);
   const HERO_CELEBRATE_ART = loadArt(`/assets/sprites/hero-celebrate.png?v=${ASSET_VERSION}`);
+  const STAGE_KEYS = [...new Set(STAGES.flatMap(stage => [stage.art, stage.interiorArt].filter(Boolean)))];
   const STAGE_ART = Object.fromEntries(
-    STAGES.map(stage => [stage.art, loadArt(`/assets/stages/${stage.art}.png?v=${ASSET_VERSION}`)])
+    STAGE_KEYS.map(key => [key, loadArt(`/assets/stages/${key}.png?v=${ASSET_VERSION}`)])
   );
 
   const keys = new Set();
   const touchMove = { x: 0, y: 0, pointerId: null };
   let mode = 'menu';
   let stageIndex = 0;
+  let stageArea = 'street';
   let player = null;
   let enemies = [];
   let particles = [];
@@ -194,6 +202,10 @@
   let lastFrame = performance.now();
   let toastTimer = 0;
   let audioContext = null;
+
+  const isCouncilStage = () => STAGES[stageIndex]?.kind === 'council';
+  const isCouncilExterior = () => isCouncilStage() && stageArea === 'exterior';
+  const isCouncilInterior = () => isCouncilStage() && stageArea === 'interior';
 
   function makePlayer() {
     return {
@@ -224,20 +236,24 @@
 
   function loadStage(index) {
     stageIndex = index;
+    stageArea = STAGES[index].kind === 'council' ? 'exterior' : 'street';
     player.x = 54;
     player.y = 211;
     player.facing = 1;
     player.invuln = 1;
     player.walkCycle = 0;
     setState(player, 'idle');
-    enemies = [makeEnemy(index * 2, 0), makeEnemy(index * 2 + 1, 1)];
+    enemies = isCouncilExterior() ? [] : [makeEnemy(index * 2, 0), makeEnemy(index * 2 + 1, 1)];
     particles = [];
     floaters = [];
     stageBanner = 2.35;
     stageClear = false;
     stageClearAnnounced = false;
     finalCelebration = 0;
-    showToast(`${STAGES[index].name} · ${STAGES[index].zone}`, 1.7);
+    showToast(
+      isCouncilExterior() ? 'NOVA ÁREA LIBERADA • ENTRE NA CÂMARA' : `${STAGES[index].name} · ${STAGES[index].zone}`,
+      isCouncilExterior() ? 2.4 : 1.7
+    );
   }
 
   function resetRun() {
@@ -349,7 +365,7 @@
     ui.resultEyebrow.textContent = victory ? 'MISSÃO CUMPRIDA' : 'FIM DE JOGO';
     ui.resultTitle.textContent = victory ? 'VITÓRIA 1444!' : 'TENTE DE NOVO';
     ui.resultStats.innerHTML = `
-      <div><b>${knockouts}/10</b><span>LUTAS VENCIDAS</span></div>
+      <div><b>${knockouts}/${FIGHTER_DEFS.length}</b><span>LUTAS VENCIDAS</span></div>
       <div><b>${formatTime(elapsed)}</b><span>TEMPO</span></div>
       <div><b>${finalScore}</b><span>PONTOS</span></div>`;
     ui.result.classList.add('visible');
@@ -358,13 +374,14 @@
   }
 
   function prepareFinalCelebration() {
+    if (isCouncilStage()) stageArea = 'exterior';
     finalCelebration = .001;
     player.x = W / 2;
     player.y = 220;
     player.facing = 1;
     setState(player, 'celebrate');
     resetInput();
-    showToast('1444 • MISSÃO CUMPRIDA!', 2.1);
+    showToast('CÂMARA CONQUISTADA • MISSÃO CUMPRIDA!', 2.3);
     sfxClear();
   }
 
@@ -379,6 +396,35 @@
     transition = { phase: 'stage-out', t: 0, next: stageIndex + 1 };
     resetInput();
     sfxDoor();
+  }
+
+  function enterCouncil() {
+    if (!isCouncilExterior() || transition || finalCelebration > 0) return;
+    transition = { phase: 'council-out', t: 0 };
+    resetInput();
+    sfxDoor();
+  }
+
+  function prepareCouncilInterior() {
+    stageArea = 'interior';
+    player.x = 72;
+    player.y = 220;
+    player.facing = 1;
+    player.invuln = 1.2;
+    player.walkCycle = 0;
+    setState(player, 'idle');
+    enemies = [makeEnemy(10, 0), makeEnemy(11, 1)];
+    enemies.forEach((enemy, index) => {
+      enemy.x = index === 0 ? 315 : 410;
+      enemy.y = index === 0 ? 206 : 229;
+      setState(enemy, 'stand');
+    });
+    particles = [];
+    floaters = [];
+    stageBanner = 2.35;
+    stageClear = false;
+    stageClearAnnounced = false;
+    showToast('PLENÁRIO • DERROTE OS OPONENTES DE TERNO', 2.2);
   }
 
   function updateTransition(dt) {
@@ -403,6 +449,19 @@
         transition.t = 0;
       }
     } else if (transition.phase === 'stage-in') {
+      ui.fade.style.opacity = String(1 - progress);
+      if (transition.t >= duration) {
+        transition = null;
+        ui.fade.style.opacity = '0';
+      }
+    } else if (transition.phase === 'council-out') {
+      ui.fade.style.opacity = String(progress);
+      if (transition.t >= duration) {
+        prepareCouncilInterior();
+        transition.phase = 'council-in';
+        transition.t = 0;
+      }
+    } else if (transition.phase === 'council-in') {
       ui.fade.style.opacity = String(1 - progress);
       if (transition.t >= duration) {
         transition = null;
@@ -572,6 +631,10 @@
     }
     if (!attacking) setState(player, movementStrength > .08 ? 'walk' : 'idle');
 
+    if (isCouncilExterior() && player.x >= COUNCIL_DOOR_X - 12) {
+      enterCouncil();
+      return;
+    }
     if (stageClear && stageIndex < STAGES.length - 1 && player.x > 453) beginStageExit();
   }
 
@@ -713,14 +776,15 @@
     separateFighters();
     updateEffects(dt);
 
-    if (!stageClear && enemies.every(enemy => enemy.defeated)) {
+    if (!stageClear && enemies.length > 0 && enemies.every(enemy => enemy.defeated)) {
       stageClear = true;
       if (!stageClearAnnounced) {
         stageClearAnnounced = true;
         if (stageIndex === STAGES.length - 1) {
           startFinalCelebration();
         } else {
-          showToast('CAMINHO LIVRE →', 1.7);
+          const nextIsCouncil = STAGES[stageIndex + 1]?.kind === 'council';
+          showToast(nextIsCouncil ? 'CÂMARA MUNICIPAL LIBERADA →' : 'CAMINHO LIVRE →', nextIsCouncil ? 2.1 : 1.7);
           sfxClear();
         }
       }
@@ -995,11 +1059,40 @@
   }
 
   function drawStage(stage, clock = elapsed) {
-    const art = STAGE_ART[stage.art];
+    const artKey = stage.kind === 'council' && stageArea === 'interior' ? stage.interiorArt : stage.art;
+    const art = STAGE_ART[artKey];
     if (art?.ready) {
       ctx.drawImage(art.image, 0, 0, W, H);
-      const plateY = stage.kind === 'avenidaBrasil' ? 94 : stage.kind === 'almirante' ? 121 : 118;
-      drawStreetPlate(stage, 392, plateY);
+      if (stage.kind !== 'council') {
+        const plateY = stage.kind === 'avenidaBrasil' ? 94 : stage.kind === 'almirante' ? 121 : 118;
+        drawStreetPlate(stage, 392, plateY);
+      }
+      return;
+    }
+
+    if (stage.kind === 'council') {
+      if (stageArea === 'interior') {
+        box(0, 0, W, H, '#e9d7a3');
+        box(0, 0, W, 34, '#a8a096');
+        for (let x = 12; x < W; x += 52) outlinedBox(x, 8, 40, 12, '#fff3c3', '#6f6a66');
+        box(0, 92, W, 78, '#6f351b');
+        box(7, 96, W - 14, 68, '#a85d24');
+        box(24, 111, W - 48, 51, '#c57a31');
+        outlinedBox(214, 72, 52, 43, '#bb722c');
+        text('FOZ DO IGUAÇU', 240, 68, 8, '#365676', 'center');
+        box(0, 169, W, 101, '#d8cfbc');
+        for (let y = 183; y < H; y += 22) box(0, y, W, 1, '#ada596');
+        for (let x = 0; x < W; x += 52) box(x, 169, 1, 101, '#bcb3a2');
+      } else {
+        drawSkyline(stage, clock);
+        box(0, 57, W, 109, '#455345');
+        box(28, 49, 132, 117, '#d8cab4');
+        box(174, 72, 292, 94, '#485448');
+        text('CÂMARA MUNICIPAL', 321, 102, 13, '#f0ece4', 'center');
+        outlinedBox(276, 116, 61, 51, '#526979');
+        box(0, 166, W, 104, '#cfc6b3');
+        for (let x = 0; x < W; x += 24) box(x, 189 + (x / 24 % 2) * 8, 12, 3, '#8b887f');
+      }
       return;
     }
 
@@ -1119,6 +1212,8 @@
       box(headX, headY + 5, 9, 4, '#22232b'); box(headX + 2, headY + 5, 2, 1, '#f0f0f0'); box(headX + 6, headY + 5, 2, 1, '#f0f0f0');
     } else if (type === 'champion') {
       box(headX - 1, headY - 1, 11, 3, '#d5b128'); box(headX + 1, headY - 4, 2, 3, '#d5b128'); box(headX + 5, headY - 5, 2, 4, '#d5b128'); box(headX + 9, headY - 4, 2, 3, '#d5b128');
+    } else if (type === 'suit') {
+      box(headX, headY + 4, 10, 2, '#11151c'); box(headX + 4, headY + 3, 2, 4, '#11151c');
     }
   }
 
@@ -1169,6 +1264,10 @@
       box(-1, -28, 2, 15, '#d8d9d8');
       box(-5, -28, 3, 14, actor.def.accessory === 'vest' ? '#161a20' : '#7b3f21');
       box(3, -28, 3, 14, actor.def.accessory === 'vest' ? '#161a20' : '#7b3f21');
+    } else if (actor.def.accessory === 'suit' || actor.def.accessory === 'suitBoss') {
+      box(-2, -28, 5, 12, '#f3f4ef');
+      box(0, -27, 2, 10, actor.def.accessory === 'suit' ? '#ffd800' : '#8f1730');
+      box(-5, -28, 3, 14, p.shirt); box(3, -28, 3, 14, p.shirt);
     }
 
     // Perna da frente e chute.
@@ -1372,6 +1471,7 @@
   }
 
   function drawCampaignCrowd() {
+    if (isCouncilInterior()) return;
     const count = CROWD_COUNTS[stageIndex] || CROWD_COUNTS[0];
     CROWD_SLOTS.slice(0, count)
       .map((slot, index) => ({ slot, index }))
@@ -1469,22 +1569,59 @@
     text(stageIndex === STAGES.length - 1 ? 'FINAL' : 'SIGA', x + 3, 175, 6, '#ffffff', 'center');
   }
 
+  function drawCouncilDoor() {
+    if (!isCouncilExterior() || finalCelebration > 0) return;
+    const pulse = .5 + Math.sin(demoClock * 5) * .18;
+    ctx.globalAlpha = pulse;
+    box(COUNCIL_DOOR_X - 24, 139, 48, 57, 'rgba(255,216,0,.24)');
+    box(COUNCIL_DOOR_X - 22, 141, 3, 53, '#ffd800');
+    box(COUNCIL_DOOR_X + 19, 141, 3, 53, '#ffd800');
+    ctx.globalAlpha = 1;
+    outlinedBox(COUNCIL_DOOR_X - 31, 121, 62, 15, '#080a0f', '#ffd800');
+    text('ENTRAR', COUNCIL_DOOR_X, 132, 8, '#ffffff', 'center');
+    text('↓', COUNCIL_DOOR_X, 149, 12, '#ffd800', 'center');
+  }
+
+  function objectiveText() {
+    if (isCouncilExterior()) return 'OBJETIVO • ENTRE PELA PORTA';
+    if (isCouncilInterior()) return stageClear ? 'PLENÁRIO CONQUISTADO!' : 'OBJETIVO • DERROTE OS 2 OPONENTES';
+    if (stageClear) {
+      return STAGES[stageIndex + 1]?.kind === 'council' ? 'CÂMARA LIBERADA • SIGA →' : 'CAMINHO LIVRE • SIGA →';
+    }
+    const remaining = enemies.filter(enemy => !enemy.defeated).length;
+    return remaining === 1 ? 'OBJETIVO • VENÇA O ÚLTIMO OPONENTE' : `OBJETIVO • VENÇA OS ${remaining} OPONENTES`;
+  }
+
+  function drawObjective() {
+    const label = objectiveText();
+    const width = Math.min(288, Math.max(184, label.length * 6 + 20));
+    const x = (W - width) / 2;
+    outlinedBox(x, 247, width, 16, 'rgba(5,7,12,.86)', '#ffd800');
+    text(label, W / 2, 258, label.length > 34 ? 6 : 7, '#ffffff', 'center');
+  }
+
   function drawHud() {
-    box(7, 7, 142, 27, 'rgba(5,7,12,.84)');
+    box(7, 7, 142, 29, 'rgba(5,7,12,.86)');
     text('DARLON', 12, 16, 7, '#ffffff');
     text(`${Math.ceil(player.hp)}/${player.maxHp}`, 143, 16, 6, '#ffffff', 'right');
     box(11, 21, 132, 8, '#191d24');
     box(12, 22, 130 * (player.hp / player.maxHp), 6, player.hp > 30 ? '#4bd17c' : '#ef334c');
     box(12, 22, 130 * (player.hp / player.maxHp), 2, 'rgba(255,255,255,.35)');
 
-    box(176, 7, 128, 25, 'rgba(5,7,12,.78)');
-    text(`FASE ${stageIndex + 1}/5`, 240, 16, 7, '#ffd800', 'center');
-    text(STAGES[stageIndex].name, 240, 26, 6, '#ffffff', 'center');
+    box(163, 7, 154, 29, 'rgba(5,7,12,.82)');
+    text(`FASE ${stageIndex + 1}/${STAGES.length}`, 240, 16, 7, '#ffd800', 'center');
+    const areaName = isCouncilInterior() ? 'PLENÁRIO MUNICIPAL' : STAGES[stageIndex].name;
+    text(areaName, 240, 25, areaName.length > 23 ? 5 : 6, '#ffffff', 'center');
+    const dotGap = 15;
+    const dotsStart = 240 - ((STAGES.length - 1) * dotGap) / 2;
+    STAGES.forEach((_, index) => {
+      box(dotsStart + index * dotGap - 4, 30, 9, 3, index <= stageIndex ? '#ffd800' : '#4a5260');
+    });
 
     const remaining = enemies.filter(enemy => !enemy.defeated).length;
-    box(326, 7, 108, 25, 'rgba(5,7,12,.78)');
-    text('ADVERSÁRIOS', 332, 16, 6, '#aeb6c5');
-    text(String(remaining), 424, 27, 14, remaining ? '#ffdf35' : '#4bd17c', 'right');
+    box(329, 7, 105, 29, 'rgba(5,7,12,.82)');
+    text(isCouncilExterior() ? 'DESTINO' : 'ADVERSÁRIOS', 335, 16, 6, '#aeb6c5');
+    text(isCouncilExterior() ? 'PORTA →' : String(remaining), 424, 28, isCouncilExterior() ? 8 : 14, remaining || isCouncilExterior() ? '#ffdf35' : '#4bd17c', 'right');
     text(formatTime(elapsed), 332, 27, 7, '#ffffff');
 
     if (combo > 1 && comboTimer > 0) {
@@ -1498,9 +1635,11 @@
     ctx.globalAlpha = clamp(alpha, 0, 1);
     box(112, 91, 256, 51, 'rgba(5,7,12,.88)');
     box(112, 91, 6, 51, '#ffd800');
-    text(`FASE ${stageIndex + 1}`, 132, 108, 7, '#ffd800');
-    text(STAGES[stageIndex].name, 240, 126, 15, '#ffffff', 'center');
-    text(STAGES[stageIndex].zone, 240, 137, 6, '#aeb6c5', 'center');
+    const title = isCouncilInterior() ? 'PLENÁRIO MUNICIPAL' : STAGES[stageIndex].name;
+    const phase = isCouncilInterior() ? `FASE ${stageIndex + 1} • INTERIOR` : `FASE ${stageIndex + 1}`;
+    text(phase, 132, 108, 7, '#ffd800');
+    text(title, 240, 126, title.length > 23 ? 10 : 15, '#ffffff', 'center');
+    text(isCouncilExterior() ? 'ENTRE PELA PORTA' : STAGES[stageIndex].zone, 240, 137, 6, '#aeb6c5', 'center');
     ctx.globalAlpha = 1;
   }
 
@@ -1520,6 +1659,7 @@
       return;
     }
     drawCampaignCrowd();
+    drawCouncilDoor();
     drawExit();
     const actors = [...enemies.map(enemy => ({ actor: enemy, player: false })), { actor: player, player: true }]
       .sort((a, b) => a.actor.y - b.actor.y);
@@ -1527,6 +1667,7 @@
     drawEffects();
     ctx.restore();
     drawHud();
+    drawObjective();
     drawStageBanner();
     if (flash > 0) {
       ctx.globalAlpha = flash * 2.6;
